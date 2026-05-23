@@ -20,8 +20,8 @@ def clamp_rho(x):
 
 def near_atm(F, K, atol=1e-10, rtol=1e-6):
     return jnp.isclose(F, K, rtol=rtol, atol=atol)
-# Black forward vega (for optional weighting)
 
+# Black forward vega (for optional weighting)
 def black_vega(F, K, T, sigma, eps=1e-12):
     ln_fk = jnp.log((F + eps) / (K + eps))
     vol_sqrt_t = sigma * jnp.sqrt(jnp.maximum(T, eps))
@@ -105,6 +105,7 @@ def sabr_loss_for_points(raw, F, K, T, market_iv, beta_fixed=0.5, weights=None):
 
 # -----------------------------------------------------------------------------
 # 4) Pure-JAX Adam optimizer
+# 
 # -----------------------------------------------------------------------------
 def adam_init(params):
     m = jax.tree.map(jnp.zeros_like, params)
@@ -172,6 +173,7 @@ def calibrate_sabr_single_expiry(F, Ks, T, market_ivs,
     raw_params = raw
     for i in range(steps):
         loss_val, grads = loss_and_grad(raw_params)
+        
         raw_params, state = adam_update(raw_params, grads, state, lr=lr)
         if verbose and (i % 200 == 0 or i == steps - 1):
             alpha, beta_used, rho, nu = sabr_params_from_raw(raw_params, beta)

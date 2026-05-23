@@ -1,0 +1,3 @@
+jax_env/
+__pycache__/
+*.md
