@@ -1,9 +1,9 @@
 from scipy.stats import norm
 import numpy as np
 import QuantLib as ql
+import polars as pl
 
 _TENOR_ALIASES = {"on": "1D"}
-
 
 def _tenor_to_ql_period(tenor: str) -> ql.Period:
     if tenor in _TENOR_ALIASES:
@@ -24,6 +24,10 @@ def tenor_to_year_fraction(
     period = _tenor_to_ql_period(tenor)
     return day_count.yearFraction(valuation_date, valuation_date + period)
 
+def get_forwards(spot:float,points:dict) -> dict:
+    fwds = { tenor : spot + (points/100) for tenor,  points in points.items() }
+    fwds['on'] = spot 
+    return fwds 
 
 class FXVolSurface:
     """Complete FX vol surface from ATM/RR/BF quotes"""
@@ -34,7 +38,7 @@ class FXVolSurface:
         self.rate_for = rate_for
         self.tenor_years = tenor_years
 
-    def strike_from_delta(self, delta: float, vol: float, is_call: bool = True) -> float:
+    def strike_from_delta(self, delta: float, vol: float | list[float], is_call: bool = True) -> float:
         """
         Calculate strike from delta using Black-Scholes
 
@@ -121,6 +125,25 @@ class FXVolSurface:
         }
 
 
+def flatten_tuple_to_dict(tup, tenor_key='tenor', sep='_'):
+    """Convert tuple (tenor, dict) to flattened dict"""
+    
+    def flatten_dict(d, parent_key=''):
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten_dict(v, new_key).items())
+            elif isinstance(v, (np.integer, np.floating)):
+                items.append((new_key, float(v) if isinstance(v, np.floating) else int(v)))
+            else:
+                items.append((new_key, v))
+        return dict(items)
+    
+    tenor_value, data_dict = tup
+    flattened = flatten_dict(data_dict)
+    return {tenor_key: tenor_value, **flattened}
+
 def build_vol_surfaces(
     atm_quotes: dict,
     rr_quotes: dict,
@@ -148,21 +171,18 @@ def build_vol_surfaces(
 
     return surfaces
 
+def get_fx_market_data_for_calibration(atm_quotes: dict, rr_quotes: dict, bf_quotes: dict, FWD_Points:dict, spot: float, rates: dict) -> pl.DataFrame:
+    surfaces = build_vol_surfaces(atm_quotes, rr_quotes, bf_quotes, spot, rates['estr'], rates['sofr'])
+    fwds = get_forwards(spot,FWD_Points) # EUR/USD Forward Points
+    surfaces_list = list(surfaces.items())
+    flattened_dicts = [flatten_tuple_to_dict(tup) for tup in surfaces_list]
+    fwds_df =  pl.DataFrame( {"tenor":list(fwds.keys()), "forward":list(fwds.values())})
+    surface_df = pl.DataFrame(flattened_dicts)
+    merged_df = surface_df.join(fwds_df, on="tenor", how="left")
+    return merged_df
 
 if __name__ == "__main__":
-    from fx_data import atm, rrs, bfs, rates, spot
+    from fx_data import atm, rrs, bfs, rates, spot, FWD_Points
 
-    surfaces = build_vol_surfaces(
-        atm, rrs, bfs,
-        spot=spot,
-        rate_dom=rates["sofr"],
-        rate_for=rates["estr"],
-    )
-
-    for tenor in atm:
-        data = surfaces[tenor]
-        print(f"{tenor.upper()} EUR/USD Vol Surface (T={data['tenor_years']:.4f}y):")
-        print("─" * 60)
-        for delta_label, point in data['surface'].items():
-            print(f"{delta_label:20} | Strike: {point['strike']:.4f} | Vol: {point['vol']:.2f}%")
-        print()
+    df = get_fx_market_data_for_calibration(atm, rrs, bfs, FWD_Points, spot, rates)
+    print(df)

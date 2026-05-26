@@ -7,6 +7,12 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap, value_and_grad
 from jax.nn import softplus
+
+from fx_utils import build_vol_surfaces, get_forwards, flatten_tuple_to_dict, get_fx_market_data_for_calibration
+from fx_data import atm, rrs, bfs, rates, spot, FWD_Points
+
+import polars as pl
+
 # -----------------------------------------------------------------------------
 # 1) Numerics and transforms
 # -----------------------------------------------------------------------------
@@ -192,7 +198,7 @@ def calibrate_sabr_single_expiry(F, Ks, T, market_ivs,
     }
     return result
 # -----------------------------------------------------------------------------
-# 6) Multi-expiry calibration (independent per expiry)
+# 6) Multi-expiry calibration (independent per expiry) synthectic data
 # -----------------------------------------------------------------------------
 def calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
                            beta=0.5, steps=1200, lr=1e-2, vega_weight=True, verbose=False):
@@ -212,8 +218,89 @@ def calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
                                            verbose=verbose)
         results.append(res)
     return results
+
+
+
 # -----------------------------------------------------------------------------
-# 7) Synthetic demo (replace with your market data)
+# 7) Multi-expiry calibration from fx options market data - using polars datatframe to align strikes etc.
+# -----------------------------------------------------------------------------
+
+_STRIKE_COLS = (
+    "surface_atm_strike",
+    "surface_25_delta_call_strike",
+    "surface_25_delta_put_strike",
+    "surface_10_delta_call_strike",
+    "surface_10_delta_put_strike",
+)
+_VOL_COLS = (
+    "surface_atm_vol",
+    "surface_25_delta_call_vol",
+    "surface_25_delta_put_vol",
+    "surface_10_delta_call_vol",
+    "surface_10_delta_put_vol",
+)
+_REQUIRED_DF_COLS = ("tenor", "tenor_years", "forward") + _STRIKE_COLS + _VOL_COLS
+
+
+def _expiry_slices_from_df(row: dict) -> tuple[float, float, np.ndarray, np.ndarray]:
+    F = row["forward"]
+    T = row["tenor_years"]
+    Ks = np.array([row[c] for c in _STRIKE_COLS], dtype=np.float32)
+    ivs = np.array([row[c] for c in _VOL_COLS], dtype=np.float32) / 100.0
+    return F, T, Ks, ivs
+
+
+def calibrate_sabr_surface_from_df(
+    market_df: pl.DataFrame,
+    beta: float = 0.5,
+    steps: int = 1200,
+    lr: float = 1e-2,
+    vega_weight: bool = True,
+    verbose: bool = False,
+) -> list[dict]:
+    """
+    Calibrate SABR per expiry from a Polars DataFrame produced by
+    get_fx_market_data_for_calibration.
+    """
+    missing = [c for c in _REQUIRED_DF_COLS if c not in market_df.columns]
+    if missing:
+        raise ValueError(f"market_df missing required columns: {missing}")
+
+    forwards = []
+    strikes_list = []
+    maturities = []
+    market_ivs_list = []
+    rows = list(market_df.iter_rows(named=True))
+
+    for row in rows:
+        F, T, Ks, ivs = _expiry_slices_from_df(row)
+        forwards.append(F)
+        strikes_list.append(Ks)
+        maturities.append(T)
+        market_ivs_list.append(ivs)
+
+    results = calibrate_sabr_surface(
+        forwards,
+        strikes_list,
+        maturities,
+        market_ivs_list,
+        beta=beta,
+        steps=steps,
+        lr=lr,
+        vega_weight=vega_weight,
+        verbose=verbose,
+    )
+
+    for row, res in zip(rows, results):
+        res["tenor"] = row["tenor"]
+        res["tenor_years"] = row["tenor_years"]
+        res["forward"] = row["forward"]
+
+    return results
+
+
+# -----------------------------------------------------------------------------
+# 8) Synthetic demo (replace with your market data)
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     # Single expiry synthetic example
@@ -254,12 +341,41 @@ if __name__ == "__main__":
                                 jnp.array(rho_true), jnp.array(nu_true))
         market_ivs_list.append(np.array(iv_i) + 0.0025 * np.random.randn(len(Ks_i)))
 
+    print("\nSynthetic data - Calibrating multiple expiries...")
+    results_surface = calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
+                                             beta=beta_true, steps=1200, lr=8e-3, vega_weight=True, verbose=False)
+
+    for i, r in enumerate(results_surface):
+        print(f'{maturities[i]=}, {forwards[i]=}, {strikes_list[i]=}, {r["alpha"]=}, {r["beta"]=}, {r["rho"]=}, {r["nu"]=}, {r["final_loss"]=}')
+
+    # Multi-expiry synthetic example
+    forwards = [100.0, 102.5, 105.0]
+    maturities = [0.25, 0.5, 1.0]
+    strikes_list = [np.linspace(70, 130, 13).astype(np.float32) for _ in forwards]
+    market_ivs_list = []
+    for F_i, T_i, Ks_i in zip(forwards, maturities, strikes_list):
+        iv_i = sabr_implied_vol(jnp.full_like(jnp.array(Ks_i), F_i), jnp.array(Ks_i), jnp.full_like(jnp.array(Ks_i), T_i),
+                                jnp.array(alpha_true), jnp.array(beta_true),
+                                jnp.array(rho_true), jnp.array(nu_true))
+        market_ivs_list.append(np.array(iv_i) + 0.0025 * np.random.randn(len(Ks_i)))
+
     print("\nCalibrating multiple expiries...")
     results_surface = calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
                                              beta=beta_true, steps=1200, lr=8e-3, vega_weight=True, verbose=False)
 
     for i, r in enumerate(results_surface):
         print(f'{maturities[i]=}, {forwards[i]=}, {strikes_list[i]=}, {r["alpha"]=}, {r["beta"]=}, {r["rho"]=}, {r["nu"]=}, {r["final_loss"]=}')
+
+
+
+    # FX Options versions using EURUSD market data.
+    df = get_fx_market_data_for_calibration(atm, rrs, bfs, FWD_Points, spot, rates)
+    results = calibrate_sabr_surface_from_df(df, beta=0.5, verbose=True)
+    for r in results:
+        print(
+            f"{r['tenor']}: alpha={r['alpha']:.4f} rho={r['rho']:.4f} "
+            f"nu={r['nu']:.4f} loss={r['final_loss']:.2e}"
+        )
 
 # ### How to use this
 # 1. Replace the **synthetic demo** at the bottom with your **market data**:
