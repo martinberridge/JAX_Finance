@@ -1,0 +1,16 @@
+title: JAX Finance
+description: Autodiff, JAX, and derivatives pricing — notes and worked examples from an ongoing build.
+theme: minima
+
+# This is a project page (martinberridge.github.io/JAX_Finance), not a
+# user/org root page, so both of these need to be set explicitly or
+# internal links and the site's own asset paths will break.
+url: "https://martinberridge.github.io"
+baseurl: "/JAX_Finance"
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Every post's front matter still needs its own `series` and `part`
+# fields — see the first post for the pattern.
