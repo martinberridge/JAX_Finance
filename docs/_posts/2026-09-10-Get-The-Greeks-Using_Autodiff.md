@@ -1,4 +1,11 @@
-# Getting the Greeks from autodiff: why options look like neural networks
+---
+layout: post
+title: "Getting the Greeks from autodiff: why options look like neural networks"
+date: 2026-09-10
+categories: [quant-finance, autodiff]
+series: autodiff-for-greeks
+part: 1
+---# Getting the Greeks from autodiff: why options look like neural networks
 
 If you've built software to price options, you've computed Greeks one of two ways: bumping a volatility input by a basis point and repricing, or — if you're working with a complex closed-form formula like Geske's (1979) compound option model — differentiating it by hand and watching the algebra spiral into something gnarly.
 
