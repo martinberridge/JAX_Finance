@@ -1,7 +1,9 @@
 jax_env/
+.venv/
 __pycache__/
 !README.md
 .vscode
 dv01/python/pv01_python.egg-info
 .pytest_cache/
+dv01/python/pv01_python.egg-info
 strata
