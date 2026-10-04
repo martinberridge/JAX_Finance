@@ -89,10 +89,6 @@ class ImmutableRatesProvider:
         yf = self.year_fraction(end)
         return self.libor_curve.y_value(yf)
 
-    def overnight_rate(self, period_start: date) -> float:
-        yf = self.year_fraction(period_start)
-        return self.discount_curve.y_value(yf)
-
     def zero_rate_point_sensitivity(self, payment_date: date, currency: str = "GBP") -> PointSensitivity:
         yf = self.year_fraction(payment_date)
         df = self.discount_factor(payment_date)

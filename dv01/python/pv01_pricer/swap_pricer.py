@@ -35,9 +35,12 @@ class DiscountingSwapTradePricer:
                 # Discount factor sensitivity
                 if is_fixed:
                     forecast = swap.notional * swap.fixed_rate * accrual
+                    leg_sign = -1.0
                 else:
                     fwd = provider.forward_rate(p.start, p.end)
                     forecast = swap.notional * fwd * accrual
+                    leg_sign = 1.0
+                forecast *= leg_sign
 
                 df_sens = PointSensitivity("ZeroRate", yf_pay, "GBP", sign * forecast * (-df * yf_pay))
 

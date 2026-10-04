@@ -69,8 +69,8 @@ def main() -> None:
         ps = provider.parameter_sensitivity(pts)
         mqs = mqc.sensitivity(ps, provider)
 
-        export_mqs(mqs, BP1, str(PATH_RESULTS / f"{CONFIG_STR}{suffix}-mqs{SUFFIX_CSV}"))
-        export_pv(pv, str(PATH_RESULTS / f"{CONFIG_STR}{suffix}-pv{SUFFIX_CSV}"))
+        # export_mqs(mqs, BP1, str(PATH_RESULTS / f"{CONFIG_STR}{suffix}-mqs{SUFFIX_CSV}"))
+        # export_pv(pv, str(PATH_RESULTS / f"{CONFIG_STR}{suffix}-pv{SUFFIX_CSV}"))
 
     print(f"Calibration and export finished: {CONFIG_STR}")
 

@@ -36,12 +36,8 @@ def _pv_float_leg_ibor(periods: List[RatePeriod], provider: ImmutableRatesProvid
 def _pv_float_leg_overnight(periods: List[RatePeriod], provider: ImmutableRatesProvider) -> float:
     pv = 0.0
     for p in periods:
-        # Compounded overnight approximation using period average rate
-        rate = provider.overnight_rate(p.start)
-        accrual = act_365f_year_fraction(p.start, p.end)
-        df = provider.discount_factor(p.payment)
-        compounded = (1.0 + rate * accrual) - 1.0
-        pv += p.notional * compounded * df
+        compounded = provider.discount_factor(p.start) / provider.discount_factor(p.end) - 1.0
+        pv += p.notional * compounded * provider.discount_factor(p.payment)
     return pv
 
 
@@ -100,7 +96,7 @@ def _fixed_leg_pvbp(periods: List[RatePeriod], provider: ImmutableRatesProvider)
 
 
 def par_spread(trade: ResolvedTrade, provider: ImmutableRatesProvider) -> float:
-    """Par spread for calibration — should be zero at calibrated curve."""
+    """Return R = par - q, so dR/dq = -1 for direct application of J^-1."""
     if trade.trade_type == TradeType.FIX:
         p = trade.periods[0]
         implied = provider.forward_rate(p.start, p.end)
@@ -114,4 +110,4 @@ def par_spread(trade: ResolvedTrade, provider: ImmutableRatesProvider) -> float:
     pvbp = _fixed_leg_pvbp(fixed_periods, provider)
     if abs(pvbp) < 1e-12:
         return pv
-    return -pv / pvbp
+    return _sign(trade.buy_sell) * pv / pvbp
