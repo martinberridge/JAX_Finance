@@ -45,9 +45,9 @@ class DiscountingSwapTradePricer:
                 df_sens = PointSensitivity("ZeroRate", yf_pay, "GBP", sign * forecast * (-df * yf_pay))
 
                 if not is_fixed:
-                    yf_end = provider.year_fraction(p.end)
-                    ibor_sens = PointSensitivity("IborRate", yf_end, "GBP", sign * swap.notional * accrual * df)
-                    sens = sens.combined_with(PointSensitivities([ibor_sens]))
+                    # dPV/dF, chained to z_L at the period start and end by the provider
+                    dpv_dfwd = sign * swap.notional * accrual * df
+                    sens = sens.combined_with(provider.ibor_point_sensitivities(p.start, p.end, dpv_dfwd))
 
                 sens = sens.combined_with(PointSensitivities([df_sens]))
 

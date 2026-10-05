@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from pv01_basics.day_count import act_365f_between
+from pv01_basics.day_count import act_365f_between, act_365f_year_fraction
 from pv01_market.curve_types import CurveParameterSize
 from pv01_market.interpolated_nodal_curve import InterpolatedNodalCurve
 
@@ -36,7 +36,7 @@ class CurrencyParameterSensitivities:
 
 @dataclass
 class PointSensitivity:
-    sensitivity_type: str  # ZeroRate, IborRate
+    sensitivity_type: str  # ZeroRate (discount curve z), IborRate (LIBOR curve z_L)
     year_fraction: float
     currency: str
     value: float
@@ -84,10 +84,19 @@ class ImmutableRatesProvider:
         z = c.y_value(yf)
         return np.exp(-yf * z)
 
+    def _libor_pseudo_df(self, yf: float) -> float:
+        """Pseudo-discount factor P_L(t) = exp(-t * z_L(t)) on the LIBOR zero rates."""
+        if yf <= EFFECTIVE_ZERO:
+            return 1.0
+        return np.exp(-yf * self.libor_curve.y_value(yf))
+
     def forward_rate(self, start: date, end: date) -> float:
-        """LIBOR-6M forward from forward curve zero rates."""
-        yf = self.year_fraction(end)
-        return self.libor_curve.y_value(yf)
+        """LIBOR-6M simple forward F = (P_L(s) / P_L(e) - 1) / tau, tau = act/365F(s, e)."""
+        tau = act_365f_year_fraction(start, end)
+        if tau <= EFFECTIVE_ZERO:
+            return self.libor_curve.y_value(self.year_fraction(end))
+        ratio = self._libor_pseudo_df(self.year_fraction(start)) / self._libor_pseudo_df(self.year_fraction(end))
+        return (ratio - 1.0) / tau
 
     def zero_rate_point_sensitivity(self, payment_date: date, currency: str = "GBP") -> PointSensitivity:
         yf = self.year_fraction(payment_date)
@@ -96,9 +105,29 @@ class ImmutableRatesProvider:
             return PointSensitivity("ZeroRate", yf, currency, 0.0)
         return PointSensitivity("ZeroRate", yf, currency, -df * yf)
 
-    def ibor_point_sensitivity(self, end: date, currency: str = "GBP") -> PointSensitivity:
-        yf = self.year_fraction(end)
-        return PointSensitivity("IborRate", yf, currency, 1.0, index="GBP-LIBOR-6M")
+    def ibor_point_sensitivities(
+        self, start: date, end: date, dpv_dfwd: float, currency: str = "GBP"
+    ) -> PointSensitivities:
+        """Chain dPV/dF through F's dependence on z_L at the period start and end.
+
+        dF/dz_L(t_e) = t_e * P_L(s) / P_L(e) / tau, dF/dz_L(t_s) = -t_s * P_L(s) / P_L(e) / tau.
+        """
+        tau = act_365f_year_fraction(start, end)
+        yf_start = self.year_fraction(start)
+        yf_end = self.year_fraction(end)
+        if tau <= EFFECTIVE_ZERO:
+            return PointSensitivities([PointSensitivity("IborRate", yf_end, currency, dpv_dfwd, index="GBP-LIBOR-6M")])
+        ratio = self._libor_pseudo_df(yf_start) / self._libor_pseudo_df(yf_end)
+        points = []
+        if yf_start > EFFECTIVE_ZERO:
+            points.append(
+                PointSensitivity("IborRate", yf_start, currency, dpv_dfwd * (-yf_start * ratio / tau), index="GBP-LIBOR-6M")
+            )
+        if yf_end > EFFECTIVE_ZERO:
+            points.append(
+                PointSensitivity("IborRate", yf_end, currency, dpv_dfwd * (yf_end * ratio / tau), index="GBP-LIBOR-6M")
+            )
+        return PointSensitivities(points)
 
     def parameter_sensitivity(self, point_sens: PointSensitivities) -> CurrencyParameterSensitivities:
         result = CurrencyParameterSensitivities.empty()
