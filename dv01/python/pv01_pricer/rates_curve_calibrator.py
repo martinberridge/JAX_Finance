@@ -1,10 +1,10 @@
 """RatesCurveCalibrator — Newton root-finding on curve zero rates."""
 
+import logging
 from datetime import date
 from typing import List, Tuple
 
 import numpy as np
-from scipy.optimize import least_squares
 
 from pv01_loader.models import CurveDefinition, MarketData, RatesCurveGroupDefinition
 from pv01_market.curve_types import CurveParameterSize
@@ -14,9 +14,11 @@ from pv01_product.resolved_trades import ResolvedTrade, resolve_calibration_trad
 from pv01_pricer.instrument_pricers import par_spread
 from pv01_pricer.rates_provider import ImmutableRatesProvider
 
+logger = logging.getLogger(__name__)
+
 
 class RatesCurveCalibrator:
-    def __init__(self, tol: float = 1e-9, max_iter: int = 1000):
+    def __init__(self, tol: float = 1e-14, max_iter: int = 50):
         self.tol = tol
         self.max_iter = max_iter
 
@@ -94,30 +96,54 @@ class RatesCurveCalibrator:
 
         def jacobian(params: np.ndarray) -> np.ndarray:
             n = len(params)
-            eps = 1e-7
-            base = objective(params)
+            eps = 1e-6
             jac = np.zeros((len(trades), n))
             for j in range(n):
-                bumped = params.copy()
-                bumped[j] += eps
-                jac[:, j] = (objective(bumped) - base) / eps
+                bumped_up = params.copy()
+                bumped_down = params.copy()
+                bumped_up[j] += eps
+                bumped_down[j] -= eps
+                jac[:, j] = (objective(bumped_up) - objective(bumped_down)) / (2.0 * eps)
             return jac
 
-        x0 = np.array(initial_guesses)
-        result = least_squares(
-            objective,
-            x0,
-            jac=jacobian,
-            ftol=self.tol,
-            xtol=self.tol,
-            max_nfev=self.max_iter,
-        )
-        calibrated_params = result.x
+        calibrated_params = np.array(initial_guesses)
+        final_jacobian = None
+        max_residual = float("inf")
+        for iteration in range(1, self.max_iter + 1):
+            residuals = objective(calibrated_params)
+            max_residual = float(np.max(np.abs(residuals)))
+            final_jacobian = jacobian(calibrated_params)
+            condition_number = float(np.linalg.cond(final_jacobian))
+            logger.info(
+                "Calibration iteration %d: max|R|=%.6e, cond(J)=%.6e",
+                iteration,
+                max_residual,
+                condition_number,
+            )
+            if max_residual < self.tol:
+                break
+            calibrated_params -= np.linalg.solve(final_jacobian, residuals)
+        else:
+            residuals = objective(calibrated_params)
+            max_residual = float(np.max(np.abs(residuals)))
+            final_jacobian = jacobian(calibrated_params)
+            condition_number = float(np.linalg.cond(final_jacobian))
+            logger.info(
+                "Calibration iteration %d: max|R|=%.6e, cond(J)=%.6e",
+                self.max_iter,
+                max_residual,
+                condition_number,
+            )
+            if max_residual >= self.tol:
+                raise RuntimeError(
+                    f"Calibration failed to converge after {self.max_iter} iterations; "
+                    f"last max|R|={max_residual:.6e}"
+                )
+
         provider = build_provider(calibrated_params)
 
         # Compute inverse Jacobian for market quote sensitivity
-        jac_val = jacobian(calibrated_params)
-        inv_jac, _, _, _ = np.linalg.lstsq(jac_val, np.eye(len(trades)), rcond=1e-10)
+        inv_jac = np.linalg.solve(final_jacobian, np.eye(len(trades)))
 
         idx = 0
         for curve_name in curve_names:

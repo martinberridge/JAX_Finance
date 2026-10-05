@@ -50,12 +50,6 @@ PV01_TOL = 0.01
 TD_LONG_BUCKET_TOL = 0.1
 TE_TOL = 1e-8
 
-BUG_1 = "bug 1: fixed-leg DF sign"
-BUG_2 = "bug 2: OIS compounding"
-BUG_3 = "bug 3: residual sign"
-BUGS_1_2_3 = f"{BUG_1}; {BUG_2}; {BUG_3}"
-
-
 # ---------------------------------------------------------------------------
 # Shared, cached inputs
 # ---------------------------------------------------------------------------
@@ -288,14 +282,11 @@ class TestReferenceCorrectness(unittest.TestCase):
         )
 
 
-def _register_test_case(name: str, check, args: tuple, expected_failure: str | None = None) -> None:
+def _register_test_case(name: str, check, args: tuple) -> None:
     def test(self):
         check(self, *args)
 
     test.__name__ = name
-    if expected_failure is not None:
-        test = unittest.expectedFailure(test)
-        test.__doc__ = f"Expected failure: {expected_failure}"
     setattr(TestReferenceCorrectness, name, test)
 
 
@@ -310,14 +301,12 @@ for _suffix in SETTINGS_SUFFIXES:
             f"test_ta_parameter_sensitivity_matches_curve_fd__{_suffix_name}__{_curve_attr}",
             TestReferenceCorrectness._check_ta_parameter_sensitivity_matches_curve_fd,
             (_suffix, _curve_attr),
-            # BUG_1 if _curve_attr == "discount_curve" else None,
         )
 
     _register_test_case(
         f"test_tb_calibration_par_spreads_are_zero__{_suffix_name}",
         TestReferenceCorrectness._check_tb_calibration_par_spreads_are_zero,
         (_suffix,),
-        # BUG_2,
     )
     _register_test_case(
         f"test_tb_calibration_jacobian_well_conditioned__{_suffix_name}",
@@ -333,7 +322,6 @@ for _suffix in SETTINGS_SUFFIXES:
         f"test_td_bucket_sum_matches_parallel_bump__{_suffix_name}",
         TestReferenceCorrectness._check_td_bucket_sum_matches_parallel_bump,
         (_suffix,),
-        # BUGS_1_2_3,
     )
     _register_test_case(
         f"test_te_residual_quote_jacobian_is_minus_identity__{_suffix_name}",
@@ -346,5 +334,4 @@ for _suffix in SETTINGS_SUFFIXES:
         "test_td_linear_long_tenor_buckets_negligible",
         TestReferenceCorrectness._check_td_linear_long_tenor_buckets_negligible,
         (),
-        # BUG_2,
     )

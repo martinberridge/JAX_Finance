@@ -73,7 +73,7 @@ class TestCalibrationInterpolationExample(unittest.TestCase):
             for node in curve.nodes:
                 trades.append(resolve_calibration_trade(node, VALUATION_DATE, mq))
         residuals = [abs(par_spread(t, provider)) for t in trades]
-        self.assertLess(max(residuals), 5e-4)
+        self.assertLess(max(residuals), 1e-12)
 
     def test_swap_pv_magnitude(self):
         pv = _parse_pv(self.example_outputs / f"{CONFIG_STR}-linear-settings-pv.csv")
@@ -97,23 +97,19 @@ class TestCalibrationInterpolationExample(unittest.TestCase):
 
     def test_golden_regression_pv(self):
         """Regression against saved Python golden outputs."""
-        GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
         for suffix in SETTINGS_SUFFIXES:
             out = self.example_outputs / f"{CONFIG_STR}{suffix}-pv.csv"
             golden = GOLDEN_DIR / f"{CONFIG_STR}{suffix}-pv.csv"
-            if not golden.exists():
-                golden.write_text(out.read_text(encoding="utf-8"), encoding="utf-8")
+            self.assertTrue(golden.is_file(), f"Missing golden output: {golden}")
             expected = _parse_pv(golden)
             actual = _parse_pv(out)
             self.assertLess(abs(actual - expected), 1.0, f"PV drift for {suffix}")
 
     def test_golden_regression_mqs(self):
-        GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
         for suffix in SETTINGS_SUFFIXES:
             out = self.example_outputs / f"{CONFIG_STR}{suffix}-mqs.csv"
             golden = GOLDEN_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
-            if not golden.exists():
-                golden.write_text(out.read_text(encoding="utf-8"), encoding="utf-8")
+            self.assertTrue(golden.is_file(), f"Missing golden output: {golden}")
             expected = _parse_mqs(golden)
             actual = _parse_mqs(out)
             for label in expected:
