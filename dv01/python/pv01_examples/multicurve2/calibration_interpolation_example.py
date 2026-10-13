@@ -2,13 +2,15 @@
 Calibrates one set of curves with several interpolators, computes bucketed PV01 and exports CSV.
 
 Python port of CalibrationInterpolationExample.java.
+
+curve interpolation suffixes - linear, dqs = double-quadratic, ncs = natural cubic spline
 """
 
-import sys, os
+import sys
+from pathlib import Path
 
-print("EXEC:", sys.executable)
-print("CWD:", os.getcwd())
-print("PATH:", sys.path)
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from datetime import date
 
