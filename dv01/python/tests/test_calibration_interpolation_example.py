@@ -20,8 +20,11 @@ GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
 
 def _run_example():
     subprocess.run(
-        [sys.executable, "-m", "pv01_examples.multicurve2.calibration_interpolation_example"],
-        cwd=str(PYTHON_DIR),
+        [
+            sys.executable,
+            str(PYTHON_DIR / "pv01_examples" / "multicurve2" / "calibration_interpolation_example.py"),
+        ],
+        cwd=str(PYTHON_DIR.parent),
         check=True,
     )
 

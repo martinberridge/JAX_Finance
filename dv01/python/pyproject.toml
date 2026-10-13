@@ -13,6 +13,8 @@ dependencies = [
     "scipy>=1.10",
     "pandas>=2.0",
     "python-dateutil>=2.8",
+    "jax",
+    "equinox",
 ]
 
 [project.optional-dependencies]
@@ -20,7 +22,7 @@ dev = ["pytest>=7.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pv01_basics*", "pv01_loader*", "pv01_market*", "pv01_product*", "pv01_pricer*", "pv01_examples*"]
+include = ["pv01_basics*", "pv01_loader*", "pv01_market*", "pv01_product*", "pv01_pricer*", "pv01_examples*", "pv01_jax*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

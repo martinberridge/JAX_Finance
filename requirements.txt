@@ -4,3 +4,4 @@ jax==0.10.0
 jaxlib==0.10.0
 QuantLib==1.42.1
 polars==1.41.0
+equinox==0.13.8

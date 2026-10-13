@@ -15,6 +15,12 @@ python -m pv01_examples.multicurve2.calibration_interpolation_example
 
 Or run without installing by ensuring your cwd is `python/` (pytest adds it to `PYTHONPATH` automatically).
 
+The example can also be run directly by file path, from any working directory:
+
+```bash
+python /path/to/python/pv01_examples/multicurve2/calibration_interpolation_example.py
+```
+
 ## Inputs
 
 Reads CSV files from `examples/src/main/resources/example-calibration/`.
