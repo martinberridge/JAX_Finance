@@ -67,7 +67,9 @@ def main() -> None:
         provider = calibrator.calibrate(config, market_quotes, VALUATION_DATE)
 
         pv = pricer.present_value(swap, provider)
+        # get sensitivities for all cashflows on swap
         pts = pricer.present_value_sensitivity(swap, provider)
+        # how much of PV risk at time t can be assigned to each curve node 
         ps = provider.parameter_sensitivity(pts)
         mqs = mqc.sensitivity(ps, provider)
 

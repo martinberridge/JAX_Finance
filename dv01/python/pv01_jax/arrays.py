@@ -21,6 +21,38 @@ class SwapArrays(eqx.Module):
     float_leg: FloatLegArrays
     spread: jnp.ndarray = eqx.field(converter=jnp.asarray)
     fixed_leg: LegArrays | None = None
+    t_pay: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.float64),
+    )
+    trade_id: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.int64),
+    )
+    sign: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([1.0], dtype=jnp.float64),
+    )
+    fixed_rate: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray(0.0, dtype=jnp.float64),
+    )
+    tau: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.float64),
+    )
+    t_fix_start: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.float64),
+    )
+    t_fix_end: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.float64),
+    )
+    tau_fix: jnp.ndarray = eqx.field(
+        converter=jnp.asarray,
+        default_factory=lambda: jnp.asarray([], dtype=jnp.float64),
+    )
 
 
 class CalibBlock(eqx.Module):

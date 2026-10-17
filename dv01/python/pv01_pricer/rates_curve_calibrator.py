@@ -32,6 +32,10 @@ class RatesCurveCalibrator:
         market_data: MarketData,
         valuation_date: date,
     ) -> ImmutableRatesProvider:
+        '''
+        Find zero rates of all curves - par spread of each instrument in each curve.
+        Use newtons method to find z's that make par_spread zero.
+        '''
         trades: List[ResolvedTrade] = []
         curve_nodes_info: List[Tuple[str, CurveDefinition, int]] = []
         initial_guesses: List[float] = []
@@ -41,9 +45,12 @@ class RatesCurveCalibrator:
         # Ensure OIS discount before LIBOR
         curve_names = sorted(curve_names, key=lambda n: (0 if "DSCON" in n else 1, n))
 
+        # get the curve nodes for each curve, generate instruments and get their market prices as the first guess in Newton's method
         for curve_name in curve_names:
+
             curve_def = group_defn.curves[curve_name]
             curve_nodes_info.append((curve_name, curve_def, len(curve_def.nodes)))
+
             for node in curve_def.nodes:
                 trade = resolve_calibration_trade(node, valuation_date, market_data)
                 trades.append(trade)
@@ -53,10 +60,12 @@ class RatesCurveCalibrator:
             CurveParameterSize(name, group_defn.curves[name].settings.curve_name and len(group_defn.curves[name].nodes))
             for name in curve_names
         ]
+
         # Fix order parameter counts
         order = [CurveParameterSize(cd.name, len(cd.nodes)) for _, cd, _ in
                  [(n, group_defn.curves[n], 0) for n in curve_names]]
 
+        
         def build_provider(params: np.ndarray) -> ImmutableRatesProvider:
             idx = 0
             curves = {}
@@ -103,29 +112,34 @@ class RatesCurveCalibrator:
                 bumped_down = params.copy()
                 bumped_up[j] += eps
                 bumped_down[j] -= eps
-                jac[:, j] = (objective(bumped_up) - objective(bumped_down)) / (2.0 * eps)
+                jac[:, j] = (objective(bumped_up) - objective(bumped_down)) / (2.0 * eps)  # central finite differences.
             return jac
 
+        # start the newton iteration with the market prices of the curve nodes
         calibrated_params = np.array(initial_guesses)
         final_jacobian = None
         max_residual = float("inf")
         for iteration in range(1, self.max_iter + 1):
-            residuals = objective(calibrated_params)
+            
+            residuals = objective(calibrated_params) # get par spreads for all instruments in the curve
             max_residual = float(np.max(np.abs(residuals)))
-            final_jacobian = jacobian(calibrated_params)
-            condition_number = float(np.linalg.cond(final_jacobian))
+            final_jacobian = jacobian(calibrated_params)  #J = dQ/dZ Q=quotes vector i.e. calibrated params Z=par-spreads
+             # A large condition_number, roughly above 1e10 in float64, means the inverse amplifies noise. 
+             # This typically comes from nearly redundant instruments, such as two quotes at almost the same tenor.
+            condition_number = float(np.linalg.cond(final_jacobian)) 
             logger.info(
                 "Calibration iteration %d: max|R|=%.6e, cond(J)=%.6e",
                 iteration,
                 max_residual,
                 condition_number,
             )
-            if max_residual < self.tol:
+            if max_residual < self.tol:# we're done if the largest par spread is close enough to zero  
                 break
             calibrated_params -= np.linalg.solve(final_jacobian, residuals)
-        else:
+        else: # we haven't found a solution
             residuals = objective(calibrated_params)
             max_residual = float(np.max(np.abs(residuals)))
+            # numeric calcultion of jacobian
             final_jacobian = jacobian(calibrated_params)
             condition_number = float(np.linalg.cond(final_jacobian))
             logger.info(
@@ -142,9 +156,15 @@ class RatesCurveCalibrator:
 
         provider = build_provider(calibrated_params)
 
-        # Compute inverse Jacobian for market quote sensitivity
+        # Compute inverse Jacobian for market quote sensitivity i.e. solving for X so that JX = I 
+        #                         q (all trades in the group)
+        #             ⎡  ∂z_OIS / ∂q    ⎤  ← rows 0 … n₁−1
+        # inv_jac  =  ⎢  ∂z_Libor / ∂q  ⎥  ← rows n₁ … n₁+n₂−1
+        #             ⎣       ⋮         ⎦
+
         inv_jac = np.linalg.solve(final_jacobian, np.eye(len(trades)))
 
+        # for every curve get all its rows and columns from the 
         idx = 0
         for curve_name in curve_names:
             cd = group_defn.curves[curve_name]
