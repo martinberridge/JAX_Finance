@@ -57,25 +57,31 @@ class SwapArrays(eqx.Module):
 
 class CalibBlock(eqx.Module):
     trade_type: str = eqx.field(static=True)
-    quote_idx: int = eqx.field(static=True)
+    quote_idx: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    trade_id: jnp.ndarray = eqx.field(converter=jnp.asarray)
     float_leg: FloatLegArrays
-    quote: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    t_pay: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    tau: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    t_fix_start: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    t_fix_end: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    tau_fix: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    sign: jnp.ndarray = eqx.field(converter=jnp.asarray)
     fixed_leg: LegArrays | None = None
-    metadata: tuple[str, ...] = eqx.field(static=True, default=("calibration", "block"))
 
 
 class CurveSpec(eqx.Module):
     name: str = eqx.field(static=True)
+    param_slice: tuple[int, int] = eqx.field(static=True)
     labels: tuple[str, ...] = eqx.field(static=True)
-    nodes: jnp.ndarray = eqx.field(converter=jnp.asarray)
-    values: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    interpolator: str = eqx.field(static=True)
+    x_nodes: jnp.ndarray = eqx.field(converter=jnp.asarray)
 
 
 class CalibrationProblem(eqx.Module):
     name: str = eqx.field(static=True)
-    curve: CurveSpec = eqx.field()
-    blocks: tuple[CalibBlock, ...] = eqx.field(static=True)
-    quotes: jnp.ndarray = eqx.field(converter=jnp.asarray)
+    curves: tuple[CurveSpec, ...]
+    blocks: tuple[CalibBlock, ...]
+    q0: jnp.ndarray = eqx.field(converter=jnp.asarray)
 
 
 __all__ = [

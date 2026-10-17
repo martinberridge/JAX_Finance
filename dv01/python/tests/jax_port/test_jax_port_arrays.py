@@ -30,18 +30,28 @@ class TestPhase1ArrayPytree(unittest.TestCase):
         block = CalibBlock(
             trade_type="IRS",
             quote_idx=1,
+            trade_id=np.array([0, 0], dtype=np.int64),
             fixed_leg=fixed_leg,
             float_leg=float_leg,
-            quote=np.array([0.5, 1.5, 2.5], dtype=np.float64),
-            metadata=("irs", "calibration"),
+            t_pay=np.array([0.5, 1.0], dtype=np.float64),
+            tau=np.array([0.5, 0.5], dtype=np.float64),
+            t_fix_start=np.array([0.0, 0.5], dtype=np.float64),
+            t_fix_end=np.array([0.5, 1.0], dtype=np.float64),
+            tau_fix=np.array([0.5, 0.5], dtype=np.float64),
+            sign=np.array([1.0, 1.0], dtype=np.float64),
         )
         block2 = CalibBlock(
             trade_type="FIX",
             quote_idx=0,
+            trade_id=np.array([0, 0, 0], dtype=np.int64),
             fixed_leg=None,
             float_leg=float_leg,
-            quote=np.array([0.25], dtype=np.float64),
-            metadata=("fix",),
+            t_pay=np.array([0.5, 1.0, 1.5], dtype=np.float64),
+            tau=np.array([0.5, 0.5, 0.5], dtype=np.float64),
+            t_fix_start=np.array([], dtype=np.float64),
+            t_fix_end=np.array([], dtype=np.float64),
+            tau_fix=np.array([], dtype=np.float64),
+            sign=np.array([1.0, 1.0, 1.0], dtype=np.float64),
         )
 
         self.assertIsNone(block2.fixed_leg)
@@ -52,24 +62,27 @@ class TestPhase1ArrayPytree(unittest.TestCase):
 
         curve = CurveSpec(
             name="test-curve",
+            param_slice=(0, 3),
             labels=("0y", "1y", "2y"),
-            nodes=np.array([0.0, 1.0, 2.0], dtype=np.float64),
-            values=np.array([0.01, 0.02, 0.03], dtype=np.float64),
+            interpolator="Linear",
+            x_nodes=np.array([0.0, 1.0, 2.0], dtype=np.float64),
         )
         self.assertIsNotNone(hash(jax.tree_util.tree_structure(curve)))
         self.assertIsNotNone(hash(jax.tree_util.tree_structure(block)))
         self.assertIsNotNone(hash(jax.tree_util.tree_structure(swap)))
 
-        updated = eqx.tree_at(lambda x: x.quote, block, jnp.array([9.0, 9.0, 9.0]))
-        self.assertTrue(jnp.all(updated.quote == jnp.array([9.0, 9.0, 9.0], dtype=jnp.float64)))
-        self.assertTrue(jnp.all(block.quote == jnp.array([0.5, 1.5, 2.5], dtype=jnp.float64)))
+        updated = eqx.tree_at(
+            lambda x: x.float_leg.notional, block, jnp.array([9.0, 9.0, 9.0])
+        )
+        self.assertTrue(jnp.all(updated.float_leg.notional == jnp.array([9.0, 9.0, 9.0])))
+        self.assertTrue(jnp.all(block.float_leg.notional == jnp.array([2.0, 2.0, 2.0])))
 
         seen = []
 
         @jax.jit
         def fn(item):
             seen.append(1)
-            return item.quote.sum()
+            return item.float_leg.notional.sum()
 
         _ = fn(block)
         _ = fn(block)
