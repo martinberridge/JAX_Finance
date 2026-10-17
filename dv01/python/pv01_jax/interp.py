@@ -60,10 +60,53 @@ def double_quadratic(x, z, t):
     )
 
 
+def natural_cubic_spline(x, z, t):
+    """Natural cubic spline interpolation with flat extrapolation."""
+    h = jnp.diff(x)
+    slopes = jnp.diff(z) / h
+    node_count = x.shape[0]
+
+    diagonal = jnp.ones(node_count, dtype=x.dtype)
+    diagonal = diagonal.at[1:-1].set((h[:-1] + h[1:]) / 3.0)
+    lower_diagonal = jnp.concatenate((h[:-1] / 6.0, jnp.zeros((1,), dtype=x.dtype)))
+    upper_diagonal = jnp.concatenate((jnp.zeros((1,), dtype=x.dtype), h[1:] / 6.0))
+    system = (
+        jnp.diag(diagonal)
+        + jnp.diag(lower_diagonal, k=-1)
+        + jnp.diag(upper_diagonal, k=1)
+    )
+    rhs = jnp.zeros(node_count, dtype=z.dtype)
+    rhs = rhs.at[1:-1].set(slopes[1:] - slopes[:-1])
+    second_derivatives = jnp.linalg.solve(system, rhs)
+
+    t = jnp.clip(t, x[0], x[-1])
+    interval = _interval_index(x, t)
+    interval_width = h[interval]
+    a = (x[interval + 1] - t) / interval_width
+    b = 1.0 - a
+    return (
+        a * z[interval]
+        + b * z[interval + 1]
+        + (
+            a * (a * a - 1.0) * second_derivatives[interval]
+            + b * (b * b - 1.0) * second_derivatives[interval + 1]
+        )
+        * interval_width**2
+        / 6.0
+    )
+
+
 INTERPOLATORS: dict[str, Callable] = {
     "Linear": linear,
     "DoubleQuadratic": double_quadratic,
+    "NaturalCubicSpline": natural_cubic_spline,
 }
 
 
-__all__ = ["_interval_index", "linear", "double_quadratic", "INTERPOLATORS"]
+__all__ = [
+    "_interval_index",
+    "linear",
+    "double_quadratic",
+    "natural_cubic_spline",
+    "INTERPOLATORS",
+]
