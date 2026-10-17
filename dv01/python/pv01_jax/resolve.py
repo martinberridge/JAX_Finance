@@ -115,7 +115,7 @@ def pv_from_arrays(arrays: SwapArrays, provider) -> float:
     return float((pv_float - pv_fixed) * sign)
 
 
-def build_calibration_problem(
+def resolve_calibration_problem(
     group_defn: RatesCurveGroupDefinition,
     market_data: MarketData,
     valuation_date: date,
@@ -164,10 +164,20 @@ def build_calibration_problem(
     )
     return CalibrationProblem(
         name=group_defn.group_name,
+        quote_labels=tuple(label for curve in curve_specs for label in curve.labels),
         curves=tuple(curve_specs),
         blocks=blocks,
         q0=np.asarray(q0_values, dtype=np.float64),
     )
+
+
+def build_calibration_problem(
+    group_defn: RatesCurveGroupDefinition,
+    market_data: MarketData,
+    valuation_date: date,
+) -> CalibrationProblem:
+    """Backward-compatible name for resolving a calibration problem."""
+    return resolve_calibration_problem(group_defn, market_data, valuation_date)
 
 
 def _build_calibration_block(
@@ -189,12 +199,12 @@ def _build_calibration_block(
     for trade_id, (trade, quote_idx) in enumerate(trades_with_quote_indices):
         quote_indices.append(quote_idx)
         sign = 1.0 if trade.buy_sell == BuySell.BUY else -1.0
+        signs.append(sign)
         for period in trade.periods:
             float_periods.append(period)
             trade_ids.append(trade_id)
             t_pay.append(act_365f_between(valuation_date, period.payment))
             tau.append(act_365f_year_fraction(period.start, period.end))
-            signs.append(sign)
             if trade_type != "FIX":
                 fixed_periods.append(period)
                 t_fix_start.append(act_365f_between(valuation_date, period.start))
@@ -248,7 +258,7 @@ def par_spread_from_calibration_block(
     period_indices = np.flatnonzero(np.asarray(block.trade_id) == trade_id)
     quote_idx = int(np.asarray(block.quote_idx)[trade_id])
     market_rate = float(q[quote_idx])
-    sign = float(np.asarray(block.sign)[period_indices[0]])
+    sign = float(np.asarray(block.sign)[trade_id])
     pv_float = 0.0
     pv_fixed = 0.0
     pvbp = 0.0

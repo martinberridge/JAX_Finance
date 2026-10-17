@@ -14,6 +14,7 @@ from .resolve import (
     build_calibration_problem,
     par_spread_from_calibration_block,
     pv_from_arrays,
+    resolve_calibration_problem,
     resolve_swap,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "resolve_swap",
     "pv_from_arrays",
     "build_calibration_problem",
+    "resolve_calibration_problem",
     "par_spread_from_calibration_block",
 ]
