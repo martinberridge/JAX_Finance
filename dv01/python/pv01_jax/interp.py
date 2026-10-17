@@ -22,9 +22,48 @@ def linear(x, z, t):
     return z_left + weight * (z_right - z_left)
 
 
+def _quadratic(x, z, t, k):
+    """Evaluate the quadratic through nodes k-1, k, and k+1."""
+    dx1 = x[k] - x[k - 1]
+    dx2 = x[k + 1] - x[k]
+    dy1 = z[k] - z[k - 1]
+    dy2 = z[k + 1] - z[k]
+    b = (dx1 * dy2 / dx2 + dx2 * dy1 / dx1) / (dx1 + dx2)
+    c = (dy2 / dx2 - dy1 / dx1) / (dx1 + dx2)
+    delta = t - x[k]
+    return z[k] + b * delta + c * delta * delta
+
+
+def double_quadratic(x, z, t):
+    """Double-quadratic interpolation matching the production curve interpolator."""
+    t = jnp.clip(t, x[0], x[-1])
+    interval = _interval_index(x, t)
+    last_node_index = x.shape[0] - 1
+
+    left_k = jnp.clip(interval, 1, last_node_index - 1)
+    right_k = jnp.clip(interval + 1, 1, last_node_index - 1)
+    left_quadratic = _quadratic(x, z, t, left_k)
+    right_quadratic = _quadratic(x, z, t, right_k)
+
+    left_boundary_value = _quadratic(x, z, t, jnp.asarray(1))
+    right_boundary_value = _quadratic(x, z, t, jnp.asarray(last_node_index - 1))
+
+    x_left = x[interval]
+    x_right = x[interval + 1]
+    weight = (x_right - t) / (x_right - x_left)
+    blended_value = weight * left_quadratic + (1.0 - weight) * right_quadratic
+
+    return jnp.where(
+        interval == 0,
+        left_boundary_value,
+        jnp.where(interval == last_node_index - 1, right_boundary_value, blended_value),
+    )
+
+
 INTERPOLATORS: dict[str, Callable] = {
     "Linear": linear,
+    "DoubleQuadratic": double_quadratic,
 }
 
 
-__all__ = ["_interval_index", "linear", "INTERPOLATORS"]
+__all__ = ["_interval_index", "linear", "double_quadratic", "INTERPOLATORS"]
