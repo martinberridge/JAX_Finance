@@ -80,6 +80,8 @@ class CurveSpec(eqx.Module):
 class CalibrationProblem(eqx.Module):
     name: str = eqx.field(static=True)
     quote_labels: tuple[str, ...] = eqx.field(static=True)
+    discount_curve: str = eqx.field(static=True)
+    forward_curve: str = eqx.field(static=True)
     curves: tuple[CurveSpec, ...]
     blocks: tuple[CalibBlock, ...]
     q0: jnp.ndarray = eqx.field(converter=jnp.asarray)

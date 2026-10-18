@@ -165,6 +165,16 @@ def resolve_calibration_problem(
     return CalibrationProblem(
         name=group_defn.group_name,
         quote_labels=tuple(label for curve in curve_specs for label in curve.labels),
+        discount_curve=next(
+            entry.curve_name
+            for entry in group_defn.entries
+            if entry.curve_type == "Discount"
+        ),
+        forward_curve=next(
+            entry.curve_name
+            for entry in group_defn.entries
+            if entry.reference == "GBP-LIBOR-6M"
+        ),
         curves=tuple(curve_specs),
         blocks=blocks,
         q0=np.asarray(q0_values, dtype=np.float64),
