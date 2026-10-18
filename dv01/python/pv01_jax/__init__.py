@@ -10,6 +10,7 @@ from .arrays import (
     LegArrays,
     SwapArrays,
 )
+from .curves import Curve, curves_from
 from .resolve import (
     build_calibration_problem,
     par_spread_from_calibration_block,
@@ -25,6 +26,8 @@ __all__ = [
     "FloatLegArrays",
     "LegArrays",
     "SwapArrays",
+    "Curve",
+    "curves_from",
     "resolve_swap",
     "pv_from_arrays",
     "build_calibration_problem",
