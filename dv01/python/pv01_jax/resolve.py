@@ -1,13 +1,24 @@
+"""Resolve trades and calibration data into arrays for JAX pricing.
+
+The Protocols below define the curve and provider interfaces this module needs
+without depending on their concrete production classes. A curve must provide
+``y_value(time)``; a provider must expose discount and LIBOR curves matching
+that interface. This structural typing keeps the resolver decoupled from
+production pricer and market packages.
+
+The module also provides NumPy reference calculations for swap PV and
+calibration par spreads.
+"""
+
 from __future__ import annotations
 
 from datetime import date
+from typing import Protocol
 
 import numpy as np
 
 from pv01_basics.day_count import act_365f_between, act_365f_year_fraction
 from pv01_loader.models import MarketData, RatesCurveGroupDefinition
-from pv01_market.interpolated_nodal_curve import InterpolatedNodalCurve
-from pv01_pricer.rates_provider import ImmutableRatesProvider
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import (
     ResolvedSwapTrade,
@@ -22,6 +33,19 @@ from pv01_jax.arrays import (
     LegArrays,
     SwapArrays,
 )
+
+
+class _CurveLike(Protocol):
+    """Structural interface for curves that provide zero rates at a time."""
+
+    def y_value(self, x: float) -> float: ...
+
+
+class _RatesProviderLike(Protocol):
+    """Provider interface exposing the discount and forwarding curves."""
+
+    discount_curve: _CurveLike
+    libor_curve: _CurveLike
 
 
 def _np_float_array(values) -> np.ndarray:
@@ -79,19 +103,21 @@ def resolve_swap(swap: ResolvedSwapTrade, valuation_date: date) -> SwapArrays:
     )
 
 
-def _discount_factor(provider, t_pay: float) -> float:
+def _discount_factor(provider: _RatesProviderLike, t_pay: float) -> float:
     z = provider.discount_curve.y_value(t_pay)
     return float(np.exp(-t_pay * z))
 
 
-def _forward_rate(provider, t_start: float, t_end: float, tau: float) -> float:
+def _forward_rate(
+    provider: _RatesProviderLike, t_start: float, t_end: float, tau: float
+) -> float:
     z_start = provider.libor_curve.y_value(t_start)
     z_end = provider.libor_curve.y_value(t_end)
     base = np.exp(-t_start * z_start) / np.exp(-t_end * z_end)
     return float((base - 1.0) / tau)
 
 
-def pv_from_arrays(arrays: SwapArrays, provider) -> float:
+def pv_from_arrays(arrays: SwapArrays, provider: _RatesProviderLike) -> float:
     """Reference NumPy PV evaluator mirroring the production pricer for a resolved swap."""
     pv_fixed = 0.0
     if arrays.fixed_leg is not None:
@@ -262,7 +288,7 @@ def par_spread_from_calibration_block(
     block: CalibBlock,
     trade_id: int,
     q: np.ndarray,
-    provider: ImmutableRatesProvider,
+    provider: _RatesProviderLike,
 ) -> float:
     """Evaluate one trade's calibration par spread using packed arrays and quote indices."""
     period_indices = np.flatnonzero(np.asarray(block.trade_id) == trade_id)
@@ -307,14 +333,14 @@ def par_spread_from_calibration_block(
     return sign * ((pv_float - pv_fixed) * sign) / pvbp
 
 
-def _discount_factor_at_time(curve: InterpolatedNodalCurve, time: float) -> float:
+def _discount_factor_at_time(curve: _CurveLike, time: float) -> float:
     if time <= 1e-10:
         return 1.0
     return float(np.exp(-time * curve.y_value(time)))
 
 
 def _forward_rate_at_times(
-    curve: InterpolatedNodalCurve, start: float, end: float, accrual: float
+    curve: _CurveLike, start: float, end: float, accrual: float
 ) -> float:
     if accrual <= 1e-10:
         return float(curve.y_value(end))
