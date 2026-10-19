@@ -29,6 +29,18 @@ def _tangent_solve(
 
 def calibrate(problem: CalibrationProblem, q: jax.Array) -> jax.Array:
     """Calibrate curve parameters using residuals and an implicit JAX root."""
+    return _calibrate_with_solver(problem, q, newton_solve)
+
+
+def _calibrate_with_solver(
+    problem: CalibrationProblem,
+    q: jax.Array,
+    solve: Callable[
+        [Callable[[jax.Array], jax.Array], jax.Array],
+        jax.Array,
+    ],
+) -> jax.Array:
+    """Calibrate with a supplied root solver, retaining implicit differentiation."""
     q = jnp.asarray(q)
 
     def f(z: jax.Array) -> jax.Array:
@@ -37,7 +49,7 @@ def calibrate(problem: CalibrationProblem, q: jax.Array) -> jax.Array:
     return jax.lax.custom_root(
         f,
         jax.lax.stop_gradient(q),
-        newton_solve,
+        solve,
         _tangent_solve,
     )
 
