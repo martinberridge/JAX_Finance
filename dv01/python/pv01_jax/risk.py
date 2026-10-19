@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from pv01_jax.arrays import CalibrationProblem, SwapArrays
+from pv01_jax.calibrate import calibrate
 from pv01_jax.curves import curves_from
 from pv01_jax.pricers import pv_swap
 
@@ -38,4 +39,33 @@ def as_labelled(
     }
 
 
-__all__ = ["zero_rate_pv01", "as_labelled"]
+def pv_from_quotes(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+) -> jax.Array:
+    """Calibrate from quotes and return the resulting swap present value."""
+    curves = curves_from(problem, calibrate(problem, q))
+    return pv_swap(
+        swap,
+        curves,
+        problem.discount_curve,
+        problem.forward_curve,
+    )
+
+
+def market_quote_pv01(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+) -> jax.Array:
+    """Return swap PV sensitivities to market quotes in GBP per bp."""
+    return jax.grad(pv_from_quotes, argnums=2)(problem, swap, q) * 1e-4
+
+
+__all__ = [
+    "zero_rate_pv01",
+    "as_labelled",
+    "pv_from_quotes",
+    "market_quote_pv01",
+]
