@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import unittest
 from functools import lru_cache
+from statistics import median
+from time import perf_counter
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -109,6 +112,71 @@ class TestPhase3ZeroRatePV01(unittest.TestCase):
                         delta=1e-6,
                         msg=f"{suffix}, {label}",
                     )
+
+    def test_jitted_zero_rate_pv01_traces_once_for_changing_parameters(self):
+        suffix = SETTINGS_SUFFIXES[0]
+        provider = _provider(suffix)
+        problem = resolve_calibration_problem(
+            _config(suffix),
+            _market_data(),
+            VALUATION_DATE,
+        )
+        z0 = np.concatenate(
+            [provider.find_curve(spec.name).y_values for spec in problem.curves]
+        )
+        swap_arrays = resolve_swap(_swap(), VALUATION_DATE)
+        trace_count = []
+
+        @jax.jit
+        def compiled(parameters):
+            trace_count.append(None)
+            return zero_rate_pv01(problem, swap_arrays, parameters)
+
+        for offset in (0.0, 1e-4, -1e-4):
+            compiled(jnp.asarray(z0 + offset)).block_until_ready()
+
+        self.assertEqual(len(trace_count), 1)
+
+    def test_jitted_zero_rate_pv01_median_timing(self):
+        timings = []
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                provider = _provider(suffix)
+                problem = resolve_calibration_problem(
+                    _config(suffix),
+                    _market_data(),
+                    VALUATION_DATE,
+                )
+                z0 = np.concatenate(
+                    [
+                        provider.find_curve(spec.name).y_values
+                        for spec in problem.curves
+                    ]
+                )
+                swap_arrays = resolve_swap(_swap(), VALUATION_DATE)
+                compiled = jax.jit(
+                    lambda parameters: zero_rate_pv01(
+                        problem,
+                        swap_arrays,
+                        parameters,
+                    )
+                )
+                parameters = jnp.asarray(z0)
+                compiled(parameters).block_until_ready()
+
+                run_times = []
+                for _ in range(100):
+                    start_time = perf_counter()
+                    result = compiled(parameters)
+                    result.block_until_ready()
+                    run_times.append(perf_counter() - start_time)
+                timings.append((suffix, median(run_times)))
+
+        print("\nMedian jitted zero-rate PV01 time (100 runs):")
+        print("| Settings suffix | Median wall-time (ms) |")
+        print("|---|---:|")
+        for suffix, median_seconds in timings:
+            print(f"| {suffix} | {median_seconds * 1000:.6f} |")
 
 
 if __name__ == "__main__":
