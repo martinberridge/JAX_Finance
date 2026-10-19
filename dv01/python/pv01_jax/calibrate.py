@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+
+import jax
+import jax.numpy as jnp
+
+from pv01_jax.arrays import CalibrationProblem
+from pv01_jax.pricers import residuals
+
+
+def newton_solve(
+    f: Callable[[jax.Array], jax.Array],
+    z0: jax.Array,
+    tol: float = 1e-14,
+    max_iter: int = 30,
+) -> jax.Array:
+    """Find a root of a vector function using JAX Newton iterations."""
+    solution, _, _ = newton_solve_with_info(f, z0, tol, max_iter)
+    return solution
+
+
+def _tangent_solve(
+    linearized_residual: Callable[[jax.Array], jax.Array],
+    value: jax.Array,
+) -> jax.Array:
+    return jnp.linalg.solve(jax.jacfwd(linearized_residual)(value), value)
+
+
+def calibrate(problem: CalibrationProblem, q: jax.Array) -> jax.Array:
+    """Calibrate curve parameters using residuals and an implicit JAX root."""
+    q = jnp.asarray(q)
+
+    def f(z: jax.Array) -> jax.Array:
+        return residuals(problem, z, q)
+
+    return jax.lax.custom_root(
+        f,
+        jax.lax.stop_gradient(q),
+        newton_solve,
+        _tangent_solve,
+    )
+
+
+def calibrate_with_info(
+    problem: CalibrationProblem,
+    q: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Calibrate curves and return iterations and maximum residual diagnostics."""
+    q = jnp.asarray(q)
+
+    def f(z: jax.Array) -> jax.Array:
+        return residuals(problem, z, q)
+
+    return newton_solve_with_info(f, jax.lax.stop_gradient(q))
+
+
+def newton_solve_with_info(
+    f: Callable[[jax.Array], jax.Array],
+    z0: jax.Array,
+    tol: float = 1e-14,
+    max_iter: int = 30,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Return a Newton solution, iteration count, and final maximum residual."""
+    z0 = jnp.asarray(z0)
+    iteration0 = jnp.asarray(0, dtype=jnp.int32)
+
+    def max_abs_residual(z: jax.Array) -> jax.Array:
+        return jnp.max(jnp.abs(f(z)))
+
+    def condition(state: tuple[jax.Array, jax.Array]) -> jax.Array:
+        z, iteration = state
+        return (iteration < max_iter) & (max_abs_residual(z) > tol)
+
+    def step(state: tuple[jax.Array, jax.Array]) -> tuple[jax.Array, jax.Array]:
+        z, iteration = state
+        residual = f(z)
+        jacobian = jax.jacfwd(f)(z)
+        next_z = z - jnp.linalg.solve(jacobian, residual)
+        return next_z, iteration + 1
+
+    solution, iterations = jax.lax.while_loop(
+        condition,
+        step,
+        (z0, iteration0),
+    )
+    return solution, iterations, max_abs_residual(solution)
+
+
+__all__ = [
+    "newton_solve",
+    "newton_solve_with_info",
+    "calibrate",
+    "calibrate_with_info",
+]
