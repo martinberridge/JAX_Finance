@@ -12,6 +12,7 @@ from .arrays import (
 )
 from .curves import Curve, curves_from
 from .pricers import pv_swap, residuals
+from .risk import as_labelled, zero_rate_pv01
 from .resolve import (
     build_calibration_problem,
     par_spread_from_calibration_block,
@@ -31,6 +32,8 @@ __all__ = [
     "curves_from",
     "pv_swap",
     "residuals",
+    "zero_rate_pv01",
+    "as_labelled",
     "resolve_swap",
     "pv_from_arrays",
     "build_calibration_problem",
