@@ -11,6 +11,7 @@ from .arrays import (
     SwapArrays,
 )
 from .curves import Curve, curves_from
+from .pricers import pv_swap, residuals
 from .resolve import (
     build_calibration_problem,
     par_spread_from_calibration_block,
@@ -28,6 +29,8 @@ __all__ = [
     "SwapArrays",
     "Curve",
     "curves_from",
+    "pv_swap",
+    "residuals",
     "resolve_swap",
     "pv_from_arrays",
     "build_calibration_problem",
