@@ -82,19 +82,20 @@ class TestPhase4Calibration(unittest.TestCase):
                 self.assertLess(float(max_residual), 1e-14)
 
     def test_jitted_calibrate_traces_once_for_changing_quotes(self):
-        suffix = SETTINGS_SUFFIXES[0]
-        problem, q0, _ = _inputs(suffix)
-        trace_count = []
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem, q0, _ = _inputs(suffix)
+                trace_count = []
 
-        @jax.jit
-        def compiled(quotes):
-            trace_count.append(None)
-            return calibrate(problem, quotes)
+                @jax.jit
+                def compiled(quotes):
+                    trace_count.append(None)
+                    return calibrate(problem, quotes)
 
-        for shift in (0.0, 1e-4, -1e-4):
-            compiled(q0 + shift).block_until_ready()
+                for shift in (0.0, 1e-4, -1e-4):
+                    compiled(q0 + shift).block_until_ready()
 
-        self.assertEqual(len(trace_count), 1)
+                self.assertEqual(len(trace_count), 1)
 
 
 if __name__ == "__main__":
