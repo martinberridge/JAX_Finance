@@ -20,7 +20,12 @@ from pv01_examples.multicurve2.calibration_interpolation_example import (
 )
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, SETTINGS_SUFFIXES
 from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
-from pv01_jax.risk import market_quote_pv01, parallel_pv01, pv_from_quotes
+from pv01_jax.risk import (
+    cross_gamma,
+    market_quote_pv01,
+    parallel_pv01,
+    pv_from_quotes,
+)
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 from pv01_product.conventions import BuySell
@@ -99,6 +104,75 @@ def _parse_pv(path: Path) -> float:
 
 
 class TestPhase5MarketQuoteRisk(unittest.TestCase):
+    def test_cross_gamma_is_symmetric(self):
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem = _problem(suffix)
+                q0 = jnp.asarray(problem.q0)
+                gamma = np.asarray(cross_gamma(problem, _swap_arrays(), q0))
+                scale = np.max(np.abs(gamma))
+                self.assertGreater(scale, 0.0)
+                self.assertLessEqual(
+                    np.max(np.abs(gamma - gamma.T)),
+                    1e-6 * scale,
+                    f"Cross-gamma asymmetry for {suffix}",
+                )
+
+    def test_cross_gamma_columns_match_finite_differences(self):
+        h = 1e-5
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem = _problem(suffix)
+                swap_arrays = _swap_arrays()
+                q0 = jnp.asarray(problem.q0)
+                gamma = np.asarray(cross_gamma(problem, swap_arrays, q0))
+                bumps = jnp.eye(q0.shape[0], dtype=q0.dtype) * h
+                pv01_up = jax.vmap(
+                    lambda bumped_q: market_quote_pv01(
+                        problem,
+                        swap_arrays,
+                        bumped_q,
+                    )
+                )(q0 + bumps)
+                pv01_down = jax.vmap(
+                    lambda bumped_q: market_quote_pv01(
+                        problem,
+                        swap_arrays,
+                        bumped_q,
+                    )
+                )(q0 - bumps)
+                finite_difference = np.asarray(
+                    ((pv01_up - pv01_down) / (2.0 * h) * 1e-4).T
+                )
+                scale = np.max(np.abs(gamma))
+                self.assertGreater(scale, 0.0)
+                self.assertLessEqual(
+                    np.max(np.abs(gamma - finite_difference)),
+                    1e-6 * scale,
+                    f"Cross-gamma finite-difference mismatch for {suffix}",
+                )
+
+    def test_jitted_cross_gamma_reports_execution_time(self):
+        timings = []
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem = _problem(suffix)
+                swap_arrays = _swap_arrays()
+                q0 = jnp.asarray(problem.q0)
+                compiled = jax.jit(
+                    lambda quotes: cross_gamma(problem, swap_arrays, quotes)
+                )
+                compiled(q0).block_until_ready()
+                start = perf_counter()
+                compiled(q0).block_until_ready()
+                timings.append((suffix, perf_counter() - start))
+
+        print("\nJitted cross-gamma execution time:")
+        print("| Settings suffix | Wall-time (ms) |")
+        print("|---|---:|")
+        for suffix, duration in timings:
+            print(f"| {suffix} | {duration * 1000:.6f} |")
+
     def test_parallel_pv01_matches_sum_of_quote_buckets(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):

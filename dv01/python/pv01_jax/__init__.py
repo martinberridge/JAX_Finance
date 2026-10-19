@@ -21,9 +21,13 @@ from .curves import Curve, curves_from
 from .pricers import pv_swap, residuals
 from .risk import (
     as_labelled,
+    batch_market_quote_pv01,
+    cross_gamma,
     market_quote_pv01,
     parallel_pv01,
+    portfolio_market_quote_pv01,
     pv_from_quotes,
+    stack_trades,
     zero_rate_pv01,
 )
 from .resolve import (
@@ -55,6 +59,10 @@ __all__ = [
     "pv_from_quotes",
     "market_quote_pv01",
     "parallel_pv01",
+    "cross_gamma",
+    "stack_trades",
+    "batch_market_quote_pv01",
+    "portfolio_market_quote_pv01",
     "resolve_swap",
     "pv_from_arrays",
     "build_calibration_problem",
