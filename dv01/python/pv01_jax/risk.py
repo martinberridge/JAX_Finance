@@ -63,9 +63,23 @@ def market_quote_pv01(
     return jax.grad(pv_from_quotes, argnums=2)(problem, swap, q) * 1e-4
 
 
+def parallel_pv01(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+) -> jax.Array:
+    """Return the parallel market-quote PV01 in GBP per bp."""
+    return jax.jvp(
+        lambda quotes: pv_from_quotes(problem, swap, quotes),
+        (q,),
+        (jnp.ones_like(q),),
+    )[1] * 1e-4
+
+
 __all__ = [
     "zero_rate_pv01",
     "as_labelled",
     "pv_from_quotes",
     "market_quote_pv01",
+    "parallel_pv01",
 ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from functools import lru_cache
 from pathlib import Path
@@ -19,12 +20,13 @@ from pv01_examples.multicurve2.calibration_interpolation_example import (
 )
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, SETTINGS_SUFFIXES
 from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
-from pv01_jax.risk import market_quote_pv01, pv_from_quotes
+from pv01_jax.risk import market_quote_pv01, parallel_pv01, pv_from_quotes
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
 from tests.test_calibration_interpolation_example import _parse_mqs
+from tests.util.bump import bump_pv01
 
 _PYTHON_DIR = Path(__file__).resolve().parents[2]
 _GOLDEN_DIR = _PYTHON_DIR / "tests" / "golden"
@@ -70,11 +72,48 @@ def _swap_arrays():
     return resolve_swap(swap, VALUATION_DATE)
 
 
+@lru_cache(maxsize=None)
+def _hand_coded_bump_pv01(settings_suffix: str):
+    return bump_pv01(
+        _config(settings_suffix),
+        _market_data(),
+        _resolved_swap(),
+        VALUATION_DATE,
+    )
+
+
+@lru_cache(maxsize=None)
+def _resolved_swap():
+    return create_test_swap(
+        VALUATION_DATE,
+        SWAP_PERIOD_TO_START_MONTHS,
+        SWAP_TENOR_YEARS,
+        BuySell.BUY,
+        SWAP_NOTIONAL,
+        SWAP_COUPON,
+    )
+
+
 def _parse_pv(path: Path) -> float:
     return float(path.read_text(encoding="utf-8").strip().split(",")[1])
 
 
 class TestPhase5MarketQuoteRisk(unittest.TestCase):
+    def test_parallel_pv01_matches_sum_of_quote_buckets(self):
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem = _problem(suffix)
+                swap_arrays = _swap_arrays()
+                q0 = jnp.asarray(problem.q0)
+                parallel = parallel_pv01(problem, swap_arrays, q0)
+                buckets = market_quote_pv01(problem, swap_arrays, q0).sum()
+                self.assertAlmostEqual(
+                    float(parallel),
+                    float(buckets),
+                    delta=1e-8,
+                    msg=f"Parallel PV01 for {suffix}",
+                )
+
     def test_market_quote_pv01_matches_goldens(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):
@@ -174,6 +213,25 @@ class TestPhase5MarketQuoteRisk(unittest.TestCase):
         print("|---|---:|")
         for suffix, duration in timings:
             print(f"| {suffix} | {duration * 1000:.6f} |")
+
+    @unittest.skipUnless(os.environ.get("RUN_SLOW"), "slow bump-and-recalibrate test")
+    def test_market_quote_pv01_matches_hand_coded_bumps(self):
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem = _problem(suffix)
+                q0 = jnp.asarray(problem.q0)
+                actual = np.asarray(
+                    market_quote_pv01(problem, _swap_arrays(), q0)
+                )
+                expected = _hand_coded_bump_pv01(suffix)
+                self.assertEqual(set(expected), set(problem.quote_labels))
+                for label, value in zip(problem.quote_labels, actual):
+                    self.assertAlmostEqual(
+                        float(value),
+                        expected[label],
+                        delta=0.01,
+                        msg=f"{suffix}, {label}",
+                    )
 
 
 if __name__ == "__main__":
