@@ -12,6 +12,7 @@ from .arrays import (
 )
 from .calibrate import (
     calibrate,
+    calibrate_checked,
     calibrate_with_info,
     newton_solve,
     newton_solve_with_info,
@@ -37,6 +38,7 @@ __all__ = [
     "newton_solve",
     "newton_solve_with_info",
     "calibrate",
+    "calibrate_checked",
     "calibrate_with_info",
     "Curve",
     "curves_from",

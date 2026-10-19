@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import jax
 import jax.numpy as jnp
+import equinox as eqx
 
 from pv01_jax.arrays import CalibrationProblem
 from pv01_jax.pricers import residuals
@@ -35,10 +36,7 @@ def calibrate(problem: CalibrationProblem, q: jax.Array) -> jax.Array:
 def _calibrate_with_solver(
     problem: CalibrationProblem,
     q: jax.Array,
-    solve: Callable[
-        [Callable[[jax.Array], jax.Array], jax.Array],
-        jax.Array,
-    ],
+    solve: Callable[..., jax.Array],
 ) -> jax.Array:
     """Calibrate with a supplied root solver, retaining implicit differentiation."""
     q = jnp.asarray(q)
@@ -51,6 +49,24 @@ def _calibrate_with_solver(
         jax.lax.stop_gradient(q),
         solve,
         _tangent_solve,
+    )
+
+
+def calibrate_checked(
+    problem: CalibrationProblem,
+    q: jax.Array,
+    tol: float = 1e-12,
+    max_iter: int = 30,
+) -> jax.Array:
+    """Calibrate with a convergence guard; use ``eqx.filter_jit`` to retain its message."""
+    q = jnp.asarray(q)
+    solve = lambda f, z0: newton_solve(f, z0, tol=tol, max_iter=max_iter)
+    z = _calibrate_with_solver(problem, q, solve)
+    max_residual = jnp.max(jnp.abs(residuals(problem, z, q)))
+    return eqx.error_if(
+        z,
+        ~(max_residual <= tol),
+        "calibration did not converge",
     )
 
 
@@ -104,4 +120,5 @@ __all__ = [
     "newton_solve_with_info",
     "calibrate",
     "calibrate_with_info",
+    "calibrate_checked",
 ]

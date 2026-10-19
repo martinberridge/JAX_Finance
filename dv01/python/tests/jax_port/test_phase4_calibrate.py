@@ -3,13 +3,14 @@ from __future__ import annotations
 import unittest
 from functools import lru_cache
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
 
 from pv01_examples.multicurve2.calibration_interpolation_example import VALUATION_DATE
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, SETTINGS_SUFFIXES
-from pv01_jax.calibrate import calibrate, calibrate_with_info
+from pv01_jax.calibrate import calibrate, calibrate_checked, calibrate_with_info
 from pv01_jax.resolve import resolve_calibration_problem
 from pv01_loader.models import MarketData, RatesCurveGroupDefinition
 from pv01_loader.quotes_csv_loader import load_market_data
@@ -96,6 +97,34 @@ class TestPhase4Calibration(unittest.TestCase):
                     compiled(q0 + shift).block_until_ready()
 
                 self.assertEqual(len(trace_count), 1)
+
+    def test_calibrate_checked_raises_on_non_convergence(self):
+        problem, q0, _ = _inputs(SETTINGS_SUFFIXES[0])
+        with self.assertRaisesRegex(Exception, "calibration did not converge"):
+            eqx.filter_jit(calibrate_checked)(
+                problem,
+                q0 + 0.02,
+                max_iter=1,
+            )
+
+    def test_calibrate_checked_raises_on_nan_quote(self):
+        problem, q0, _ = _inputs(SETTINGS_SUFFIXES[0])
+        q_with_nan = q0.at[0].set(jnp.nan)
+        with self.assertRaisesRegex(Exception, "calibration did not converge"):
+            eqx.filter_jit(calibrate_checked)(problem, q_with_nan)
+
+    def test_calibrate_checked_matches_calibrate_when_converged(self):
+        for suffix in SETTINGS_SUFFIXES:
+            with self.subTest(settings_suffix=suffix):
+                problem, q0, _ = _inputs(suffix)
+                actual = calibrate_checked(problem, q0)
+                expected = calibrate(problem, q0)
+                np.testing.assert_allclose(
+                    np.asarray(actual),
+                    np.asarray(expected),
+                    atol=1e-12,
+                    rtol=0.0,
+                )
 
 
 if __name__ == "__main__":
