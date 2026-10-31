@@ -8,3 +8,4 @@ dv01/python/pv01_python.egg-info
 dv01/python/pv01_python.egg-info
 strata
 dv01/python/tests/golden/*.csv
+dv01/python/target/example-output/*.csv
