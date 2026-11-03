@@ -8,6 +8,8 @@ production pricer and market packages.
 
 The module also provides NumPy reference calculations for swap PV and
 calibration par spreads.
+
+boundary between plain Python and JAX :handle calculations/branching/lookups/ordering/index bookkeeping/layout changes that can't be traced in JAX
 """
 
 from __future__ import annotations
@@ -19,12 +21,12 @@ import numpy as np
 
 from pv01_basics.day_count import act_365f_between, act_365f_year_fraction
 from pv01_loader.models import MarketData, RatesCurveGroupDefinition
-from pv01_product.conventions import BuySell
+from pv01_product.conventions import BuySell # enum/branching non-traceable 
 from pv01_product.resolved_trades import (
     ResolvedSwapTrade,
     ResolvedTrade,
     resolve_calibration_trade,
-)
+) # enum/branching non-traceable - trade_type 
 from pv01_jax.arrays import (
     CalibBlock,
     CalibrationProblem,
@@ -146,7 +148,10 @@ def resolve_calibration_problem(
     market_data: MarketData,
     valuation_date: date,
 ) -> CalibrationProblem:
-    """Resolve curve calibration instruments and pack their period data into blocks."""
+    """
+    Assembles the whole calibration problem : resolve curve calibration instruments and pack their period data into blocks.
+    TODO more detail about 'blocks'
+    """
     curve_names = sorted(group_defn.curves)
     curve_names.sort(key=lambda name: (0 if "DSCON" in name else 1, name))
 
@@ -212,7 +217,10 @@ def build_calibration_problem(
     market_data: MarketData,
     valuation_date: date,
 ) -> CalibrationProblem:
-    """Backward-compatible name for resolving a calibration problem."""
+    """
+    Backward-compatible name for resolving a calibration problem
+    """
+    
     return resolve_calibration_problem(group_defn, market_data, valuation_date)
 
 
@@ -221,6 +229,9 @@ def _build_calibration_block(
     trades_with_quote_indices: list[tuple[ResolvedTrade, int]],
     valuation_date: date,
 ) -> CalibBlock:
+    '''
+    Helper that packs trades of one type into arrays
+    '''
     float_periods = []
     fixed_periods = []
     trade_ids = []

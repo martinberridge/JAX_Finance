@@ -58,7 +58,17 @@ def calibrate_checked(
     tol: float = 1e-12,
     max_iter: int = 30,
 ) -> jax.Array:
-    """Calibrate with a convergence guard; use ``eqx.filter_jit`` to retain its message."""
+    """Calibrate with a convergence guard; use ``eqx.filter_jit`` to retain its message.
+
+    A Python ``raise`` cannot test a traced residual under ``jit``, so
+    ``eqx.error_if`` attaches the check to the returned ``z`` and raises when the
+    compiled program runs. The returned value must be used, or the check can be
+    removed as dead code. The predicate is ``~(max_residual <= tol)`` rather
+    than ``max_residual > tol`` so that a NaN residual also raises.
+
+    Under ``eqx.filter_jit`` failures surface as ``eqx.EquinoxRuntimeError``
+    with this message; plain ``jax.jit`` wraps them in an XLA runtime error.
+    """
     q = jnp.asarray(q)
     solve = lambda f, z0: newton_solve(f, z0, tol=tol, max_iter=max_iter)
     z = _calibrate_with_solver(problem, q, solve)

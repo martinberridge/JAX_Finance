@@ -67,7 +67,6 @@ def _build_swap_periods(
     notional: float,
     fixed_rate: float,
     convention: ConventionInfo,
-    buy_sell: BuySell,
 ) -> tuple[List[RatePeriod], List[RatePeriod]]:
     cal = convention.calendar
     fixed_periods = []
@@ -112,6 +111,10 @@ def resolve_calibration_trade(
     market_data: MarketData,
     notional: float = 1_000_000.0,
 ) -> ResolvedTrade:
+    '''
+    factory method for turning a curve description of an instrument into concrete dated cashflow periods
+    branching on node_type OIS/FIX/IRS
+    '''
     convention = CONVENTIONS[node.convention]
     market_rate = market_data.get_quote(node.quote_id)
     trade_date = valuation_date
@@ -154,7 +157,7 @@ def resolve_calibration_trade(
         tenor = Tenor.parse(node.time)
         start = spot
         end = tenor.add_to(start)
-        fixed_leg, float_leg = _build_swap_periods(start, end, notional, market_rate, convention, BuySell.BUY)
+        fixed_leg, float_leg = _build_swap_periods(start, end, notional, market_rate, convention)
         return ResolvedTrade(
             trade_type=TradeType.IRS,
             convention=convention,
@@ -179,12 +182,12 @@ def create_test_swap(
     notional: float,
     fixed_rate: float,
 ) -> ResolvedSwapTrade:
-    """8Y GBP fixed vs LIBOR 6M swap, 6M forward start."""
+    """GBP fixed 6M vs LIBOR 6M swap starting ``period_to_start_months`` after spot for ``tenor_years``."""
     convention = CONVENTIONS["GBP-FIXED-6M-LIBOR-6M"]
     spot = spot_date(valuation_date, convention)
     start = Tenor.parse(f"{period_to_start_months}M").add_to(spot)
     end = Tenor.parse(f"{tenor_years}Y").add_to(start)
-    fixed_leg, float_leg = _build_swap_periods(start, end, notional, fixed_rate, convention, buy_sell)
+    fixed_leg, float_leg = _build_swap_periods(start, end, notional, fixed_rate, convention)
     return ResolvedSwapTrade(
         fixed_leg=fixed_leg,
         float_leg=float_leg,

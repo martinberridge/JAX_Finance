@@ -11,6 +11,13 @@ from pv01_jax.interp import INTERPOLATORS
 
 
 class Curve(eqx.Module):
+    """Zero-rate curve built from a spec and its slice of curve parameters.
+
+    As an ``eqx.Module`` the curve is a pytree with ordinary methods, so a
+    ``dict[str, Curve]`` can be passed through JAX transforms and gradients
+    flow from prices back through ``z`` to the global parameter vector.
+    """
+
     spec: CurveSpec
     z: jax.Array = eqx.field(converter=jnp.asarray)
 

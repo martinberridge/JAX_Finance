@@ -59,7 +59,33 @@ def market_quote_pv01(
     swap: SwapArrays,
     q: jax.Array,
 ) -> jax.Array:
-    """Return swap PV sensitivities to market quotes in GBP per bp."""
+    """Return swap PV sensitivities to market quotes in GBP per bp.
+
+    One reverse-mode pass replaces the three hand-coded steps of the reference
+    pipeline (``pv01_examples/multicurve2/calibration_interpolation_example.py``):
+
+    1. ``DiscountingSwapTradePricer.present_value_sensitivity`` builds point
+       sensitivities dPV/dz(t) per cashflow time, using
+       ``ImmutableRatesProvider.zero_rate_point_sensitivity`` (``-df * t``) and
+       ``ibor_point_sensitivities`` (dF/dz_L at period start and end). Here these
+       are the derivatives of ``pv_swap`` through ``Curve.df`` and
+       ``Curve.forward``; the ``EFFECTIVE_ZERO`` branches correspond to the
+       ``jnp.where`` guards, whose constant branches have zero gradient.
+    2. ``ImmutableRatesProvider.parameter_sensitivity`` maps points to curve
+       nodes with ``y_value_parameter_sensitivity``. Here that is the derivative
+       through ``INTERPOLATORS`` in ``Curve.zero``; the slice in ``curves_from``
+       routes each curve's gradient into its section of the parameter vector.
+    3. ``MarketQuoteSensitivityCalculator.sensitivity`` maps node sensitivities
+       to quotes through the calibration Jacobian. Here ``calibrate`` uses
+       ``custom_root``, whose implicit-function rule supplies dz/dq without
+       differentiating through the Newton iterations.
+
+    The per-cashflow point sensitivities of step 1 are never materialised;
+    reverse mode goes straight from PV to curve nodes. For the step-2 result,
+    call ``zero_rate_pv01`` with the calibrated parameters.
+
+    ``1e-4`` converts per unit of quote (decimal rate) to per basis point.
+    """
     return jax.grad(pv_from_quotes, argnums=2)(problem, swap, q) * 1e-4
 
 
@@ -68,11 +94,14 @@ def parallel_pv01(
     swap: SwapArrays,
     q: jax.Array,
 ) -> jax.Array:
-    """Return the parallel market-quote PV01 in GBP per bp."""
+    """
+    Return the parallel market-quote PV01 in GBP per bp.
+    autodiff pv_from_quotes  forward_mode, returning the tangent [1]     
+    """
     return jax.jvp(
-        lambda quotes: pv_from_quotes(problem, swap, quotes),
-        (q,),
-        (jnp.ones_like(q),),
+        lambda quotes: pv_from_quotes(problem, swap, quotes), # f: quotes → PV (scalar) - use lambda to make f dependent on quotes only, keeeping swap and quotes fixed
+        (q,), # primals are quotes
+        (jnp.ones_like(q),), # tangent is array of 1's same size & shape as q 
     )[1] * 1e-4
 
 
