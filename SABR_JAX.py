@@ -1,317 +1,32 @@
-# JAX SABR calibration with automatic differentiation (Hagan 2002 approximation)
-# -----------------------------------------------------------------------------
-# Requirements: Python >= 3.8, JAX (pip install jax jaxlib) if not already present.
-import math
+"""
+SABR calibration with JAX automatic differentiation (Hagan 2002): a demo.
+
+The model and calibrator live in `jax_finance.sabr` (formula in its
+docstring), and the FX market-data helpers in `jax_finance.fx`, which needs
+the `[fx]` extra. Importing `jax_finance` turns on float64 (x64).
+Run from the repo root, or after `pip install -e .[fx]`.
+
+The pre-refactor version of this file had two bugs in `sabr_implied_vol`
+(every K > F returned its eps floor, and the (1-beta)^2/24 coefficients
+were 4x too small), so its demo output was wrong; see
+docs/refactor-plan.md, Step 0.5.
+"""
+
 import numpy as np
-import jax
 import jax.numpy as jnp
-from jax import jit, vmap, value_and_grad
-from jax.nn import softplus
 
-from fx_utils import build_vol_surfaces, get_forwards, flatten_tuple_to_dict, get_fx_market_data_for_calibration
-from fx_data import atm, rrs, bfs, rates, spot, FWD_Points
-
-import polars as pl
-
-# -----------------------------------------------------------------------------
-# 1) Numerics and transforms
-# -----------------------------------------------------------------------------
-def clamp_pos(x, eps=1e-12):
-    # Softplus + epsilon to keep strictly positive
-    return softplus(x) + eps
-
-def clamp_rho(x):
-    # Map R -> (-1, 1)
-    return jnp.tanh(x)
-
-def near_atm(F, K, atol=1e-10, rtol=1e-6):
-    return jnp.isclose(F, K, rtol=rtol, atol=atol)
-
-# Black forward vega (for optional weighting)
-def black_vega(F, K, T, sigma, eps=1e-12):
-    ln_fk = jnp.log((F + eps) / (K + eps))
-    vol_sqrt_t = sigma * jnp.sqrt(jnp.maximum(T, eps))
-    d1 = (ln_fk + 0.5 * sigma * sigma * jnp.maximum(T, eps)) / jnp.maximum(vol_sqrt_t, eps)
-    nprime = jnp.exp(-0.5 * d1 * d1) / math.sqrt(2.0 * math.pi)
-    # Forward vega (no discounting)
-    return F * nprime * jnp.sqrt(jnp.maximum(T, eps))
-# -----------------------------------------------------------------------------
-# 2) Hagan (2002) SABR implied volatility approximation (vectorized)
-#    sigma_SABR(F, K, T; alpha, beta, rho, nu)
-# -----------------------------------------------------------------------------
-def sabr_implied_vol(F, K, T, alpha, beta, rho, nu, eps=1e-12):
-    """
-    Vectorized Hagan SABR implied vol approximation with ATM fallback.
-    F, K, T: tensors (broadcastable)
-    alpha>0, nu>0; beta in [0,1]; rho in (-1,1)
-
-    Known bugs (found 2026-11-03 in Step 0.5 of docs/refactor-plan.md, fixed
-    in Step 1's jax_finance/sabr.py; this copy is left as it was):
-      - Every K > F returns the eps floor. x(z) is negative whenever z is,
-        and z / jnp.maximum(xz, eps) replaces it with eps.
-      - The (1-beta)^2/24 coefficients in D, the time adjustment and the ATM
-        branch are written pow_ * pow_ / 24 with pow_ = (1-beta)/2, a factor
-        of 4 too small. The error reaches 1.2% in the beta = 0 wings.
-    Calibrations that use this function, including the demos below, are
-    affected. The Step 1 tests use QuantLib values instead
-    (tests/golden/sabr_vol_ref.csv).
-    """
-    # Ensure Forwards, Strikes and Maturities are strictly positive
-    F = jnp.clip(F, eps, None)
-    K = jnp.clip(K, eps, None)
-    T = jnp.clip(T, eps, None) 
-
-    beta = jnp.clip(beta, 0.0, 1.0)
-    FK = F * K
-    log_fk = jnp.log(F / K)
-    pow_ = (1.0 - beta) / 2.0
-    FK_pow = FK ** pow_
-    # z and x(z)
-    z = (nu / alpha) * FK_pow * log_fk
-    sqrt_term = jnp.sqrt(jnp.maximum(1.0 - 2.0 * rho * z + z * z, eps))
-    xz = jnp.log(jnp.maximum((sqrt_term + z - rho) / (1.0 - rho), eps))
-    # D term (log-moneyness series)
-    log_fk2 = log_fk * log_fk
-    log_fk4 = log_fk2 * log_fk2
-    D = 1.0 + (pow_ * pow_) * log_fk2 / 24.0 + (pow_ ** 4) * log_fk4 / 1920.0
-    base = alpha / jnp.maximum(FK_pow * D, eps)
-    # z/x(z), safe near z~0
-    zx = z / jnp.maximum(xz, eps)
-    zx = jnp.where(jnp.abs(z) < 1e-8, 1.0, zx)
-    # Time adjustment
-    term1 = (pow_ * pow_) * alpha * alpha / (24.0 * jnp.maximum(FK ** (1.0 - beta), eps))
-    term2 = (rho * beta * nu * alpha) / (4.0 * jnp.maximum(FK_pow, eps))
-    term3 = ((2.0 - 3.0 * rho * rho) * nu * nu) / 24.0
-    time_adj = 1.0 + (term1 + term2 + term3) * T
-    sigma = base * zx * time_adj
-    # ATM fallback when K ~ F (must stay traceable under jit — no Python if on tracers)
-    atm_mask = near_atm(F, K)
-    F_beta = jnp.maximum(F ** (1.0 - beta), eps)
-    atm_base = alpha / F_beta
-    atm_time_adj = 1.0 + (
-        (pow_ * pow_) * alpha * alpha / (24.0 * jnp.maximum(F ** (2.0 * (1.0 - beta)), eps))
-        + (rho * beta * nu * alpha) / (4.0 * jnp.maximum(F_beta, eps))
-        + ((2.0 - 3.0 * rho * rho) * nu * nu) / 24.0
-    ) * T
-    sigma_atm = atm_base * atm_time_adj
-    sigma = jnp.where(atm_mask, sigma_atm, sigma)
-    return jnp.clip(sigma, eps, None)
-
-# -----------------------------------------------------------------------------
-# 3) Loss and parameterization
-# -----------------------------------------------------------------------------
-def sabr_params_from_raw(raw, beta_fixed):
-    """
-    raw: dict with raw_alpha, raw_rho, raw_nu (unconstrained)
-    returns: (alpha, beta, rho, nu) with constraints enforced
-    """
-    alpha = clamp_pos(raw["raw_alpha"])
-    nu    = clamp_pos(raw["raw_nu"])
-    rho   = clamp_rho(raw["raw_rho"])
-    beta  = jnp.array(beta_fixed, dtype=jnp.float32)
-    return alpha, beta, rho, nu
-
-def sabr_loss_for_points(raw, F, K, T, market_iv, beta_fixed=0.5, weights=None):
-    alpha, beta, rho, nu = sabr_params_from_raw(raw, beta_fixed)
-    model_iv = sabr_implied_vol(F, K, T, alpha, beta, rho, nu)
-    err2 = (model_iv - market_iv) ** 2
-    if weights is not None:
-        w = jnp.maximum(weights, 1e-12)
-        err2 = w * err2
-    return jnp.mean(err2), model_iv
-
-# -----------------------------------------------------------------------------
-# 4) Pure-JAX Adam optimizer
-# 
-# -----------------------------------------------------------------------------
-def adam_init(params):
-    m = jax.tree.map(jnp.zeros_like, params)
-    v = jax.tree.map(jnp.zeros_like, params)
-    t = jnp.array(0, dtype=jnp.int32)
-    return {"m": m, "v": v, "t": t}
-
-@jit
-def adam_update(params, grads, state, lr=1e-2, b1=0.9, b2=0.999, eps=1e-8):
-    t = state["t"] + 1
-    m = jax.tree.map(lambda m, g: b1 * m + (1.0 - b1) * g, state["m"], grads)
-    v = jax.tree.map(lambda v, g: b2 * v + (1.0 - b2) * (g * g), state["v"], grads)
-    m_hat = jax.tree.map(lambda m: m / (1.0 - b1 ** t), m)
-    v_hat = jax.tree.map(lambda v: v / (1.0 - b2 ** t), v)
-    params = jax.tree.map(lambda p, mh, vh: p - lr * mh / (jnp.sqrt(vh) + eps), params, m_hat, v_hat)
-    return params, {"m": m, "v": v, "t": t}
-# -----------------------------------------------------------------------------
-# 5) Single-expiry calibration
-# -----------------------------------------------------------------------------
-def calibrate_sabr_single_expiry(F, Ks, T, market_ivs,
-                                 beta=0.5,
-                                 vega_weight=True,
-                                 steps=1500,
-                                 lr=1e-2,
-                                 verbose=True,
-                                 seed=0):
-    """
-    Calibrate SABR (alpha, rho, nu) for one expiry with fixed beta.
-    Inputs:
-      F: scalar forward
-      Ks: array of strikes
-      T: scalar maturity (in years)
-      market_ivs: array of market implied vols aligned with Ks
-    """
-    key = jax.random.PRNGKey(seed)
-
-    # casting 
-    F_arr = jnp.array(F, dtype=jnp.float32)
-    K_arr = jnp.array(Ks, dtype=jnp.float32)
-    T_arr = jnp.array(T, dtype=jnp.float32)
-    T_arr = jnp.full_like(K_arr, T_arr)  # broadcast T to strikes
-    mkt   = jnp.array(market_ivs, dtype=jnp.float32)
-
-    # Initialization: use median IV to guess alpha (scaled by F^(1-beta))
-    init_alpha = jnp.median(mkt) * (F_arr ** (1.0 - beta))
-    raw = {
-        "raw_alpha": jnp.log(jnp.maximum(init_alpha, 1e-4)),      # log-init for stability
-        "raw_rho":   jnp.array(0.0),                              # start at 0 correlation
-        "raw_nu":    jnp.log(jnp.array(0.5)),                     # vol-of-vol init
-    }
-    state = adam_init(raw)
-    # Optional vega weights (from market IVs)
-    weights = None
-    if vega_weight:
-        weights = black_vega(jnp.full_like(K_arr, F_arr), K_arr, T_arr, mkt)
-        weights = weights / jnp.maximum(jnp.mean(weights), 1e-12)
-    # JIT-compiled loss+grad function
-
-    def loss_only(raw_params):
-        loss_val, _ = sabr_loss_for_points(raw_params, jnp.full_like(K_arr, F_arr), K_arr, T_arr, mkt, beta, weights)
-        return loss_val
-    
-    loss_and_grad = jit(value_and_grad(loss_only))
-    # Training loop
-    raw_params = raw
-    for i in range(steps):
-        loss_val, grads = loss_and_grad(raw_params)
-        
-        raw_params, state = adam_update(raw_params, grads, state, lr=lr)
-        if verbose and (i % 200 == 0 or i == steps - 1):
-            alpha, beta_used, rho, nu = sabr_params_from_raw(raw_params, beta)
-            print(f"[Adam {i:04d}] loss={float(loss_val):.6f} "
-                  f"alpha={float(alpha):.4f} rho={float(rho):.4f} nu={float(nu):.4f}")
-    # Final model IVs and params
-    final_loss, model_iv = sabr_loss_for_points(raw_params, jnp.full_like(K_arr, F_arr), K_arr, T_arr, mkt, beta, weights)
-    alpha, beta_used, rho, nu = sabr_params_from_raw(raw_params, beta)
-    result = {
-        "alpha": float(alpha),
-        "beta":  float(beta_used),
-        "rho":   float(rho),
-        "nu":    float(nu),
-        "model_ivs": np.array(model_iv),   # convert to numpy for convenience
-        "final_loss": float(final_loss),
-    }
-    return result
-# -----------------------------------------------------------------------------
-# 6) Multi-expiry calibration (independent per expiry) synthectic data
-# -----------------------------------------------------------------------------
-def calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
-                           beta=0.5, steps=1200, lr=1e-2, vega_weight=True, verbose=False):
-    """
-    Calibrate SABR for each expiry independently with fixed beta.
-    Returns a list of dicts with calibrated parameters per expiry.
-    """
-    results = []
-    for idx, (F, Ks, T, ivs) in enumerate(zip(forwards, strikes_list, maturities, market_ivs_list)):
-        if verbose:
-            print(f"\n=== Expiry {idx}: T={T:.6f}, F={F:.6f}, beta={beta} ===")
-        res = calibrate_sabr_single_expiry(F, Ks, T, ivs,
-                                           beta=beta,
-                                           steps=steps,
-                                           lr=lr,
-                                           vega_weight=vega_weight,
-                                           verbose=verbose)
-        results.append(res)
-    return results
-
-
-
-# -----------------------------------------------------------------------------
-# 7) Multi-expiry calibration from fx options market data - using polars datatframe to align strikes etc.
-# -----------------------------------------------------------------------------
-
-_STRIKE_COLS = (
-    "surface_atm_strike",
-    "surface_25_delta_call_strike",
-    "surface_25_delta_put_strike",
-    "surface_10_delta_call_strike",
-    "surface_10_delta_put_strike",
+from jax_finance.fx import get_fx_market_data_for_calibration
+from jax_finance.fx.data import atm, rrs, bfs, rates, spot, FWD_Points
+from jax_finance.sabr import (
+    calibrate_sabr_single_expiry,
+    calibrate_sabr_surface,
+    calibrate_sabr_surface_from_df,
+    sabr_implied_vol,
 )
-_VOL_COLS = (
-    "surface_atm_vol",
-    "surface_25_delta_call_vol",
-    "surface_25_delta_put_vol",
-    "surface_10_delta_call_vol",
-    "surface_10_delta_put_vol",
-)
-_REQUIRED_DF_COLS = ("tenor", "tenor_years", "forward") + _STRIKE_COLS + _VOL_COLS
-
-
-def _expiry_slices_from_df(row: dict) -> tuple[float, float, np.ndarray, np.ndarray]:
-    F = row["forward"]
-    T = row["tenor_years"]
-    Ks = np.array([row[c] for c in _STRIKE_COLS], dtype=np.float32)
-    ivs = np.array([row[c] for c in _VOL_COLS], dtype=np.float32) / 100.0
-    return F, T, Ks, ivs
-
-
-def calibrate_sabr_surface_from_df(
-    market_df: pl.DataFrame,
-    beta: float = 0.5,
-    steps: int = 1200,
-    lr: float = 1e-2,
-    vega_weight: bool = True,
-    verbose: bool = False,
-) -> list[dict]:
-    """
-    Calibrate SABR per expiry from a Polars DataFrame produced by
-    get_fx_market_data_for_calibration.
-    """
-    missing = [c for c in _REQUIRED_DF_COLS if c not in market_df.columns]
-    if missing:
-        raise ValueError(f"market_df missing required columns: {missing}")
-
-    forwards = []
-    strikes_list = []
-    maturities = []
-    market_ivs_list = []
-    rows = list(market_df.iter_rows(named=True))
-
-    for row in rows:
-        F, T, Ks, ivs = _expiry_slices_from_df(row)
-        forwards.append(F)
-        strikes_list.append(Ks)
-        maturities.append(T)
-        market_ivs_list.append(ivs)
-
-    results = calibrate_sabr_surface(
-        forwards,
-        strikes_list,
-        maturities,
-        market_ivs_list,
-        beta=beta,
-        steps=steps,
-        lr=lr,
-        vega_weight=vega_weight,
-        verbose=verbose,
-    )
-
-    for row, res in zip(rows, results):
-        res["tenor"] = row["tenor"]
-        res["tenor_years"] = row["tenor_years"]
-        res["forward"] = row["forward"]
-
-    return results
 
 
 # -----------------------------------------------------------------------------
-# 8) Synthetic demo (replace with your market data)
+# Synthetic demo (replace with your market data)
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     # Single expiry synthetic example
@@ -398,5 +113,5 @@ if __name__ == "__main__":
 #     - Adding a small **regularization** term to the loss (e.g., penalize large `ν` or extreme `ρ`).
 # ### Notes
 # - This example uses **Adam only**. For second‑order refinement (e.g., L‑BFGS), consider **JAXopt** (`pip install jaxopt`) and plug its solver into `loss_only`.
-# - The **ATM fallback** improves stability when `K ≈ F`; you can relax the isclose tolerances if needed.
+# - Near `K ≈ F`, `z/x(z)` switches to its series, so values and gradients stay finite at the money.
 # - For **joint calibration** (shared parameters across expiries), stack all expiries’ points into one loss and optimize a single parameter set—just pass concatenated arrays to `sabr_loss_for_points`.
