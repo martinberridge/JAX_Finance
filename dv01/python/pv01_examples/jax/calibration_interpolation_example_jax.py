@@ -91,6 +91,8 @@ def main() -> None:
         SWAP_COUPON,
     )
     swap_arrays = resolve_swap(swap, VALUATION_DATE)
+
+    # each interpolation config 
     for suffix in SETTINGS_SUFFIXES:
         config = load_calibration(
             config_dir / f"{CONFIG_STR}-group.csv",
@@ -103,8 +105,11 @@ def main() -> None:
             VALUATION_DATE,
         )
         quotes = jnp.asarray(problem.q0)
+
+        # smoke test for calibration
         calibrated_parameters = calibrate(problem, quotes)
-        calibrated_parameters.block_until_ready()
+        calibrated_parameters.block_until_ready() # make python wait until JAX has finished computing and array
+        
         pv = float(pv_from_quotes(problem, swap_arrays, quotes))
         pv01 = market_quote_pv01(problem, swap_arrays, quotes)
 
@@ -117,12 +122,14 @@ def main() -> None:
         )
 
         golden_difference = _largest_golden_difference(problem, pv01, suffix)
+        # time function compiled to XLA 
         compiled_pv01 = jax.jit(
             lambda q: market_quote_pv01(problem, swap_arrays, q)
         )
-        compiled_pv01(quotes).block_until_ready()
+        #timing
+        compiled_pv01(quotes).block_until_ready() # warm-up - tigger JIT compile and wait until queue is empty
         start = perf_counter()
-        compiled_pv01(quotes).block_until_ready()
+        compiled_pv01(quotes).block_until_ready() # wait for the compute device to finishe
         jax_elapsed = perf_counter() - start
 
         print(f"\n{suffix}")
