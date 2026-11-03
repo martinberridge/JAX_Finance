@@ -1,6 +1,11 @@
 """
 FX Option Pricing using Black's Model with JAX (Optimized)
 Automatically computes Price and all Greeks in a single JIT-compiled AD pass.
+
+Runs in float32 unless jax_enable_x64 is set. In float32, Greeks lose up to
+about 2e-4 relative accuracy on ordinary values, and much more on tiny OTM
+prices. The Step 1 regression golden (tests/golden/black_v0.csv) is this
+code run with x64 on; see docs/refactor-plan.md, Step 0.5.
 """
 
 import jax

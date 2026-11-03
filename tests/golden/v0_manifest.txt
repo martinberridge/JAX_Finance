@@ -1,0 +1,16 @@
+commit: 065f4f09cab20bb2064d569239fee678021f49e5
+JAX_black_option_pricing.py clean at commit: yes
+capture date: 2026-11-03
+python: 3.12.3
+jax: 0.10.0
+jaxlib: 0.10.0
+numpy: 2.4.4
+QuantLib: 1.42.1
+platform: Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39
+jax backend: cpu
+jax_enable_x64: True
+black_v0.csv rows: 72 (old code, float64)
+sabr_vol_ref.csv rows: 68 (QuantLib sabrVolatility)
+sabr_calib_input.csv rows: 39 (QuantLib, no noise)
+sabr_calib_true.csv rows: 3
+calibration settings: beta=0.5, steps=3000, lr=0.008, vega_weight=True

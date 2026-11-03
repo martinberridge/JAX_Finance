@@ -44,6 +44,17 @@ def sabr_implied_vol(F, K, T, alpha, beta, rho, nu, eps=1e-12):
     Vectorized Hagan SABR implied vol approximation with ATM fallback.
     F, K, T: tensors (broadcastable)
     alpha>0, nu>0; beta in [0,1]; rho in (-1,1)
+
+    Known bugs (found 2026-11-03 in Step 0.5 of docs/refactor-plan.md, fixed
+    in Step 1's jax_finance/sabr.py; this copy is left as it was):
+      - Every K > F returns the eps floor. x(z) is negative whenever z is,
+        and z / jnp.maximum(xz, eps) replaces it with eps.
+      - The (1-beta)^2/24 coefficients in D, the time adjustment and the ATM
+        branch are written pow_ * pow_ / 24 with pow_ = (1-beta)/2, a factor
+        of 4 too small. The error reaches 1.2% in the beta = 0 wings.
+    Calibrations that use this function, including the demos below, are
+    affected. The Step 1 tests use QuantLib values instead
+    (tests/golden/sabr_vol_ref.csv).
     """
     # Ensure Forwards, Strikes and Maturities are strictly positive
     F = jnp.clip(F, eps, None)
