@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import os
 import sys
 from pathlib import Path
@@ -16,8 +15,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from pv01_examples.export_utils import export_mqs, export_pv
-from pv01_examples.multicurve2.calibration_interpolation_example import (
+from pv01_examples.common import (
     BP1,
     SWAP_COUPON,
     SWAP_NOTIONAL,
@@ -25,6 +23,7 @@ from pv01_examples.multicurve2.calibration_interpolation_example import (
     SWAP_TENOR_YEARS,
     VALUATION_DATE,
 )
+from pv01_examples.export_utils import export_mqs, export_pv, read_mqs
 from pv01_examples.paths import (
     CONFIG_STR,
     PATH_CONFIG,
@@ -38,24 +37,11 @@ from pv01_jax.risk import market_quote_pv01, pv_from_quotes
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 from pv01_product.conventions import BuySell
+from pv01_pricer.bump import bump_pv01
 from pv01_product.resolved_trades import create_test_swap
-from tests.util.bump import bump_pv01
 
 PATH_JAX_RESULTS = PYTHON_DIR / "target" / "example-output-jax"
 GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
-
-
-def _parse_mqs(path: Path) -> dict[str, float]:
-    values: dict[str, float] = {}
-    with path.open(newline="", encoding="utf-8") as file:
-        for row in csv.reader(file):
-            if len(row) < 2:
-                continue
-            try:
-                values[row[0].strip()] = float(row[1].strip())
-            except ValueError:
-                continue
-    return values
 
 
 def _sensitivity_export(problem, pv01):
@@ -74,7 +60,7 @@ def _sensitivity_export(problem, pv01):
 
 
 def _largest_golden_difference(problem, pv01, suffix: str) -> float:
-    golden = _parse_mqs(
+    golden = read_mqs(
         GOLDEN_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
     )
     values = {

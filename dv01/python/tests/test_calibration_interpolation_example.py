@@ -6,6 +6,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+from pv01_examples.export_utils import read_mqs, read_pv
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, PATH_RESULTS, SETTINGS_SUFFIXES
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
@@ -27,28 +28,6 @@ def _run_example():
         cwd=str(PYTHON_DIR.parent),
         check=True,
     )
-
-
-def _parse_pv(path: Path) -> float:
-    text = path.read_text(encoding="utf-8").strip()
-    parts = text.split(",")
-    return float(parts[1])
-
-
-def _parse_mqs(path: Path) -> dict[str, float]:
-    lines = path.read_text(encoding="utf-8").strip().splitlines()[1:]
-    result = {}
-    for line in lines:
-        if not line.strip():
-            continue
-        label, value = [p.strip() for p in line.split(",", 1)]
-        if label in ("GBP-DSCON-OIS", "GBP-LIBOR6M-IRS", "GBP"):
-            continue
-        try:
-            result[label] = float(value)
-        except ValueError:
-            pass
-    return result
 
 
 class TestCalibrationInterpolationExample(unittest.TestCase):
@@ -79,17 +58,17 @@ class TestCalibrationInterpolationExample(unittest.TestCase):
         self.assertLess(max(residuals), 1e-12)
 
     def test_swap_pv_magnitude(self):
-        pv = _parse_pv(self.example_outputs / f"{CONFIG_STR}-linear-settings-pv.csv")
+        pv = read_pv(self.example_outputs / f"{CONFIG_STR}-linear-settings-pv.csv")
         self.assertGreater(abs(pv), 500_000)
         self.assertLess(abs(pv), 5_000_000)
 
     def test_pv_varies_across_interpolators(self):
-        pvs = [_parse_pv(self.example_outputs / f"{CONFIG_STR}{s}-pv.csv") for s in SETTINGS_SUFFIXES]
+        pvs = [read_pv(self.example_outputs / f"{CONFIG_STR}{s}-pv.csv") for s in SETTINGS_SUFFIXES]
         self.assertLess(max(pvs) - min(pvs), 500_000)
         self.assertGreaterEqual(len(set(round(p, -2) for p in pvs)), 1)
 
     def test_mqs_has_all_calibration_nodes(self):
-        mqs = _parse_mqs(self.example_outputs / f"{CONFIG_STR}-linear-settings-mqs.csv")
+        mqs = read_mqs(self.example_outputs / f"{CONFIG_STR}-linear-settings-mqs.csv")
         expected = {
             "GBP-OIS-3M", "GBP-OIS-6M", "GBP-OIS-1Y", "GBP-OIS-2Y", "GBP-OIS-3Y",
             "GBP-OIS-5Y", "GBP-OIS-10Y", "GBP-OIS-15Y", "GBP-OIS-20Y", "GBP-OIS-30Y",
@@ -104,8 +83,8 @@ class TestCalibrationInterpolationExample(unittest.TestCase):
             out = self.example_outputs / f"{CONFIG_STR}{suffix}-pv.csv"
             golden = GOLDEN_DIR / f"{CONFIG_STR}{suffix}-pv.csv"
             self.assertTrue(golden.is_file(), f"Missing golden output: {golden}")
-            expected = _parse_pv(golden)
-            actual = _parse_pv(out)
+            expected = read_pv(golden)
+            actual = read_pv(out)
             self.assertLess(abs(actual - expected), 1.0, f"PV drift for {suffix}")
 
     def test_golden_regression_mqs(self):
@@ -113,8 +92,8 @@ class TestCalibrationInterpolationExample(unittest.TestCase):
             out = self.example_outputs / f"{CONFIG_STR}{suffix}-mqs.csv"
             golden = GOLDEN_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
             self.assertTrue(golden.is_file(), f"Missing golden output: {golden}")
-            expected = _parse_mqs(golden)
-            actual = _parse_mqs(out)
+            expected = read_mqs(golden)
+            actual = read_mqs(out)
             for label in expected:
                 if label in actual and abs(expected[label]) > 1.0:
                     rel = abs(actual[label] - expected[label]) / abs(expected[label])

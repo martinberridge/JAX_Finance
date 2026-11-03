@@ -12,8 +12,14 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from datetime import date
-
+from pv01_examples.common import (
+    BP1,
+    SWAP_COUPON,
+    SWAP_NOTIONAL,
+    SWAP_PERIOD_TO_START_MONTHS,
+    SWAP_TENOR_YEARS,
+    VALUATION_DATE,
+)
 from pv01_examples.export_utils import export_mqs, export_pv
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, PATH_RESULTS, SETTINGS_SUFFIXES
 from pv01_loader.quotes_csv_loader import load_market_data
@@ -23,13 +29,6 @@ from pv01_pricer.rates_curve_calibrator import RatesCurveCalibrator
 from pv01_pricer.swap_pricer import DiscountingSwapTradePricer
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
-
-VALUATION_DATE = date(2016, 8, 1)
-SWAP_TENOR_YEARS = 8
-SWAP_PERIOD_TO_START_MONTHS = 6
-SWAP_COUPON = 0.025
-SWAP_NOTIONAL = 10_000_000.0
-BP1 = 1.0e-4
 
 SUFFIX_CSV = ".csv"
 GROUPS_SUFFIX = "-group"

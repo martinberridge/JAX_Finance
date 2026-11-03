@@ -4,8 +4,8 @@ import subprocess
 import sys
 import unittest
 
+from pv01_examples.export_utils import read_mqs, read_pv
 from pv01_examples.paths import CONFIG_STR, PYTHON_DIR, SETTINGS_SUFFIXES
-from tests.test_calibration_interpolation_example import _parse_mqs, _parse_pv
 
 OUTPUT_DIR = PYTHON_DIR / "target" / "example-output-jax"
 GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
@@ -36,18 +36,18 @@ class TestJaxCalibrationInterpolationExample(unittest.TestCase):
     def test_jax_outputs_match_golden_pv_and_mqs(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):
-                actual_pv = _parse_pv(
+                actual_pv = read_pv(
                     OUTPUT_DIR / f"{CONFIG_STR}{suffix}-pv.csv"
                 )
-                expected_pv = _parse_pv(
+                expected_pv = read_pv(
                     GOLDEN_DIR / f"{CONFIG_STR}{suffix}-pv.csv"
                 )
                 self.assertAlmostEqual(actual_pv, expected_pv, delta=0.01)
 
-                actual_mqs = _parse_mqs(
+                actual_mqs = read_mqs(
                     OUTPUT_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
                 )
-                expected_mqs = _parse_mqs(
+                expected_mqs = read_mqs(
                     GOLDEN_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
                 )
                 self.assertEqual(tuple(actual_mqs), tuple(expected_mqs))

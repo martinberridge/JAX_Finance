@@ -18,6 +18,7 @@ from pv01_examples.multicurve2.calibration_interpolation_example import (
     SWAP_TENOR_YEARS,
     VALUATION_DATE,
 )
+from pv01_examples.export_utils import read_mqs, read_pv
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, SETTINGS_SUFFIXES
 from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
 from pv01_jax.risk import (
@@ -30,7 +31,6 @@ from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
-from tests.test_calibration_interpolation_example import _parse_mqs
 from tests.util.bump import bump_pv01
 
 _PYTHON_DIR = Path(__file__).resolve().parents[2]
@@ -97,10 +97,6 @@ def _resolved_swap():
         SWAP_NOTIONAL,
         SWAP_COUPON,
     )
-
-
-def _parse_pv(path: Path) -> float:
-    return float(path.read_text(encoding="utf-8").strip().split(",")[1])
 
 
 class TestPhase5MarketQuoteRisk(unittest.TestCase):
@@ -200,7 +196,7 @@ class TestPhase5MarketQuoteRisk(unittest.TestCase):
                 golden_mqs_path = (
                     _GOLDEN_DIR / f"{CONFIG_STR}{suffix}-mqs.csv"
                 )
-                expected_mqs = _parse_mqs(golden_mqs_path)
+                expected_mqs = read_mqs(golden_mqs_path)
                 self.assertEqual(
                     tuple(expected_mqs),
                     problem.quote_labels,
@@ -214,7 +210,7 @@ class TestPhase5MarketQuoteRisk(unittest.TestCase):
                     )
 
                 actual_pv = float(pv_from_quotes(problem, swap_arrays, q0))
-                expected_pv = _parse_pv(
+                expected_pv = read_pv(
                     _GOLDEN_DIR / f"{CONFIG_STR}{suffix}-pv.csv"
                 )
                 self.assertAlmostEqual(

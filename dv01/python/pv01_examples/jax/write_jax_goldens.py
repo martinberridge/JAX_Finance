@@ -12,7 +12,7 @@ if __package__ in (None, ""):
 import jax.numpy as jnp
 import numpy as np
 
-from pv01_examples.multicurve2.calibration_interpolation_example import (
+from pv01_examples.common import (
     SWAP_COUPON,
     SWAP_NOTIONAL,
     SWAP_PERIOD_TO_START_MONTHS,

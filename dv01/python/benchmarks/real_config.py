@@ -1,21 +1,20 @@
-"""Benchmark JAX market-quote risk functions against bump-and-recalibrate."""
+"""Benchmark JAX market-quote risk functions against bump-and-recalibrate.
+
+Run from dv01/python: ``python -m benchmarks.real_config [--slow]``. Writes
+``benchmarks/results/real_config.md``.
+"""
 
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 from statistics import median
 from time import perf_counter
 from typing import Callable
 
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 import jax
 import jax.numpy as jnp
 
-from pv01_examples.multicurve2.calibration_interpolation_example import (
+from pv01_examples.common import (
     SWAP_COUPON,
     SWAP_NOTIONAL,
     SWAP_PERIOD_TO_START_MONTHS,
@@ -33,10 +32,11 @@ from pv01_jax.risk import (
 )
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
+from pv01_pricer.bump import bump_pv01
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
 
-OUTPUT_PATH = PYTHON_DIR / "target" / "benchmark.md"
+OUTPUT_PATH = PYTHON_DIR / "benchmarks" / "results" / "real_config.md"
 
 
 def _time_jitted(function: Callable, arguments: tuple) -> tuple[float, float]:
@@ -92,8 +92,6 @@ def _load_inputs(settings_suffix: str):
 
 
 def _time_hand_coded_bump(config, market_data, swap) -> float:
-    from tests.util.bump import bump_pv01
-
     start = perf_counter()
     bump_pv01(config, market_data, swap, VALUATION_DATE)
     return perf_counter() - start

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import jax
 import jax.numpy as jnp
 
@@ -114,6 +116,54 @@ def cross_gamma(
     return jax.hessian(pv_from_quotes, argnums=2)(problem, swap, q) * 1e-8
 
 
+def _bump_market_quote_pv01(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+    h: float,
+    map_over: Callable,
+) -> jax.Array:
+    q = jnp.asarray(q)
+    bumps = h * jnp.eye(q.shape[0], dtype=q.dtype)
+    shifts = jnp.concatenate([bumps, -bumps])
+    pvs = map_over(lambda shift: pv_from_quotes(problem, swap, q + shift), shifts)
+    n = q.shape[0]
+    return (pvs[:n] - pvs[n:]) / (2.0 * h) * 1e-4
+
+
+def bump_market_quote_pv01(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+    h: float = 1e-4,
+) -> jax.Array:
+    """Return central bump-and-recalibrate PV01 per market quote in GBP per bp.
+
+    Each quote is shifted by +h and -h, the curves are recalibrated and the swap
+    repriced: the same compiled pricer and Newton calibrator as
+    ``market_quote_pv01``, so the two differ only in how the derivative is
+    taken. All 2N recalibrations run as one ``vmap`` batch. With the default
+    h = 1bp the result is ``(PV_up - PV_down) / 2``, as in the legacy
+    ``pv01_pricer.bump.bump_pv01``.
+    """
+    return _bump_market_quote_pv01(problem, swap, q, h, lambda f, xs: jax.vmap(f)(xs))
+
+
+def bump_market_quote_pv01_sequential(
+    problem: CalibrationProblem,
+    swap: SwapArrays,
+    q: jax.Array,
+    h: float = 1e-4,
+) -> jax.Array:
+    """``bump_market_quote_pv01`` with the 2N recalibrations run one at a time (``lax.map``).
+
+    This is how a conventional risk system bumps: one scenario after another.
+    Comparing it with the ``vmap`` version separates the cost of the 2N
+    recalibrations from the benefit of batching them.
+    """
+    return _bump_market_quote_pv01(problem, swap, q, h, jax.lax.map)
+
+
 def stack_trades(swaps: list[SwapArrays]) -> SwapArrays:
     """Stack equal-shaped swaps into a leading trade dimension."""
     if not swaps:
@@ -173,6 +223,8 @@ __all__ = [
     "market_quote_pv01",
     "parallel_pv01",
     "cross_gamma",
+    "bump_market_quote_pv01",
+    "bump_market_quote_pv01_sequential",
     "stack_trades",
     "batch_market_quote_pv01",
     "portfolio_market_quote_pv01",

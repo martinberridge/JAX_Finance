@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from pv01_examples.export_utils import read_mqs
 from pv01_examples.paths import (
     CONFIG_STR,
     PATH_CONFIG,
@@ -15,7 +16,6 @@ from pv01_examples.paths import (
 from pv01_jax.resolve import resolve_calibration_problem
 from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
-from tests.test_calibration_interpolation_example import _parse_mqs
 
 
 VALUATION_DATE = date(2016, 8, 1)
@@ -87,7 +87,7 @@ class TestPhase1JitOrdering(unittest.TestCase):
                 self.assertTrue(golden.is_file(), f"Missing golden output: {golden}")
                 self.assertEqual(
                     problem.quote_labels,
-                    tuple(_parse_mqs(golden).keys()),
+                    tuple(read_mqs(golden).keys()),
                 )
 
     def test_curve_parameter_slices_tile_quote_labels(self):

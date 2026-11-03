@@ -22,6 +22,8 @@ from .pricers import pv_swap, residuals
 from .risk import (
     as_labelled,
     batch_market_quote_pv01,
+    bump_market_quote_pv01,
+    bump_market_quote_pv01_sequential,
     cross_gamma,
     market_quote_pv01,
     parallel_pv01,
@@ -29,13 +31,6 @@ from .risk import (
     pv_from_quotes,
     stack_trades,
     zero_rate_pv01,
-)
-from .resolve import (
-    build_calibration_problem,
-    par_spread_from_calibration_block,
-    pv_from_arrays,
-    resolve_calibration_problem,
-    resolve_swap,
 )
 
 __all__ = [
@@ -62,10 +57,7 @@ __all__ = [
     "cross_gamma",
     "stack_trades",
     "batch_market_quote_pv01",
+    "bump_market_quote_pv01",
+    "bump_market_quote_pv01_sequential",
     "portfolio_market_quote_pv01",
-    "resolve_swap",
-    "pv_from_arrays",
-    "build_calibration_problem",
-    "resolve_calibration_problem",
-    "par_spread_from_calibration_block",
 ]
