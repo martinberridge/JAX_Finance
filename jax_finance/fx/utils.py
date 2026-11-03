@@ -25,28 +25,49 @@ def tenor_to_year_fraction(
     return day_count.yearFraction(valuation_date, valuation_date + period)
 
 def get_forwards(spot:float,points:dict) -> dict:
-    fwds = { tenor : spot + (points/100) for tenor,  points in points.items() }
+    # Forward points are quoted in pips: 1 point = 1e-4 for EUR/USD
+    fwds = { tenor : spot + (points/10000) for tenor,  points in points.items() }
     fwds['on'] = spot 
     return fwds 
 
 class FXVolSurface:
-    """Complete FX vol surface from ATM/RR/BF quotes"""
+    """
+    Complete FX vol surface from ATM/RR/BF quotes.
 
-    def __init__(self, spot: float, rate_dom: float, rate_for: float, tenor_years: float):
+    rate_dom is the quote (domestic) currency rate and rate_for the base
+    (foreign) currency rate: for EUR/USD, USD is domestic and EUR foreign.
+    Deltas are forward deltas, premium unadjusted:
+
+        d1 = (ln(F/K) + vol^2 T / 2) / (vol sqrt(T))
+        call delta = N(d1),  put delta = N(d1) - 1
+
+    F is the market forward when one is given (e.g. from forward points),
+    otherwise spot exp((rate_dom - rate_for) T).
+    """
+
+    def __init__(self, spot: float, rate_dom: float, rate_for: float, tenor_years: float,
+                 forward: float | None = None):
         self.spot = spot
         self.rate_dom = rate_dom
         self.rate_for = rate_for
         self.tenor_years = tenor_years
+        self._forward = forward
+
+    @property
+    def forward(self) -> float:
+        """Market forward if given, else the covered-interest-parity forward."""
+        if self._forward is not None:
+            return self._forward
+        return self.spot * np.exp((self.rate_dom - self.rate_for) * self.tenor_years)
 
     def strike_from_delta(self, delta: float, vol: float | list[float], is_call: bool = True) -> float:
         """
-        Calculate strike from delta using Black-Scholes
+        Strike with the given forward delta; the inverse of delta_from_strike.
 
         Delta = N(d1) for calls
         Delta = N(d1) - 1 for puts
+        so K = F exp(-d1 vol sqrt(T) + vol^2 T / 2)
         """
-        rate_diff = self.rate_dom - self.rate_for
-
         if is_call:
             d1 = norm.ppf(delta)
         else:
@@ -54,17 +75,17 @@ class FXVolSurface:
 
         vol_sqrt_t = vol * np.sqrt(self.tenor_years)
 
-        strike = self.spot * np.exp(
-            (d1 * vol_sqrt_t) - (rate_diff * self.tenor_years) - (vol ** 2 / 2) * self.tenor_years
-        )
+        strike = self.forward * np.exp(-(d1 * vol_sqrt_t) + (vol ** 2 / 2) * self.tenor_years)
 
         return strike
 
-    def delta_from_strike(self, strike: float, vol: float, is_call: bool = True) -> float:
-        """Calculate delta from strike"""
-        rate_diff = self.rate_dom - self.rate_for
+    def atm_strike(self, vol: float) -> float:
+        """Delta-neutral (50-delta) ATM strike: N(d1) = 0.5, so K = F exp(vol^2 T / 2)."""
+        return self.forward * np.exp((vol ** 2 / 2) * self.tenor_years)
 
-        d1 = (np.log(self.spot / strike) + (rate_diff + vol**2 / 2) * self.tenor_years) / (
+    def delta_from_strike(self, strike: float, vol: float, is_call: bool = True) -> float:
+        """Forward delta of the option struck at strike."""
+        d1 = (np.log(self.forward / strike) + (vol**2 / 2) * self.tenor_years) / (
             vol * np.sqrt(self.tenor_years)
         )
 
@@ -98,7 +119,7 @@ class FXVolSurface:
 
         return {
             'atm': {
-                'strike': self.spot,
+                'strike': self.atm_strike(atm_vol / 100),
                 'vol': atm_vol,
                 'delta': 0.50,
             },
@@ -152,12 +173,15 @@ def build_vol_surfaces(
     rate_dom: float,
     rate_for: float,
     valuation_date: ql.Date | None = None,
+    forwards: dict | None = None,
 ) -> dict[str, dict]:
+    """Surfaces per tenor; strikes are relative to forwards[tenor] when given."""
     surfaces = {}
 
     for tenor, atm_vol in atm_quotes.items():
         tenor_years = tenor_to_year_fraction(tenor, valuation_date)
-        surface = FXVolSurface(spot, rate_dom, rate_for, tenor_years)
+        forward = None if forwards is None else forwards[tenor]
+        surface = FXVolSurface(spot, rate_dom, rate_for, tenor_years, forward=forward)
         surfaces[tenor] = {
             'tenor_years': tenor_years,
             'surface': surface.build_from_quotes(
@@ -172,8 +196,12 @@ def build_vol_surfaces(
     return surfaces
 
 def get_fx_market_data_for_calibration(atm_quotes: dict, rr_quotes: dict, bf_quotes: dict, FWD_Points:dict, spot: float, rates: dict) -> pl.DataFrame:
-    surfaces = build_vol_surfaces(atm_quotes, rr_quotes, bf_quotes, spot, rates['estr'], rates['sofr'])
     fwds = get_forwards(spot,FWD_Points) # EUR/USD Forward Points
+    # EUR/USD: USD (SOFR) is the domestic currency, EUR (ESTR) the foreign one.
+    # Strikes use the quoted forwards, the same ones the calibration uses.
+    surfaces = build_vol_surfaces(atm_quotes, rr_quotes, bf_quotes, spot,
+                                  rate_dom=rates['sofr'], rate_for=rates['estr'],
+                                  forwards=fwds)
     surfaces_list = list(surfaces.items())
     flattened_dicts = [flatten_tuple_to_dict(tup) for tup in surfaces_list]
     fwds_df =  pl.DataFrame( {"tenor":list(fwds.keys()), "forward":list(fwds.values())})
