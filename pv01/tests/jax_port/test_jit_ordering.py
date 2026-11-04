@@ -40,7 +40,7 @@ def _problem(settings_suffix):
     return resolve_calibration_problem(config, _market_data(), VALUATION_DATE)
 
 
-class TestPhase1JitOrdering(unittest.TestCase):
+class TestJitOrdering(unittest.TestCase):
     def test_jit_cache_uses_static_interpolator_settings(self):
         problems = [_problem(SETTINGS_SUFFIXES[0]), _problem(SETTINGS_SUFFIXES[1])]
         trace_count = []

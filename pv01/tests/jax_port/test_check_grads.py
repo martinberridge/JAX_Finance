@@ -10,10 +10,10 @@ from pv01_jax.curves import curves_from
 from pv01_jax.interp import INTERPOLATORS
 from pv01_jax.pricers import pv_swap, residuals
 from pv01_jax.risk import pv_from_quotes
-from tests.jax_port.test_phase5_risk import _problem, _swap_arrays
+from tests.util.example_inputs import example_problem as _problem, example_swap_arrays as _swap_arrays
 
 
-class TestPhase6GradientChecks(unittest.TestCase):
+class TestGradientChecks(unittest.TestCase):
     def _check_function(self, name, function, argument):
         try:
             check_grads(

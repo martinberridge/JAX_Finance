@@ -9,7 +9,7 @@ import numpy as np
 from pv01_jax.calibrate import newton_solve, newton_solve_with_info
 
 
-class TestPhase4NewtonSolver(unittest.TestCase):
+class TestNewtonSolver(unittest.TestCase):
     def setUp(self) -> None:
         self.a = jnp.asarray([0.5, 2.0, 9.0], dtype=jnp.float64)
 

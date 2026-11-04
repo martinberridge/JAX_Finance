@@ -78,7 +78,7 @@ def _jax_parameters(problem, provider):
     )
 
 
-class TestPhase2Curves(unittest.TestCase):
+class TestCurves(unittest.TestCase):
     def test_discount_factors_for_swap_payment_periods(self):
         swap_arrays = resolve_swap(_swap(), VALUATION_DATE)
         for suffix in SETTINGS_SUFFIXES:

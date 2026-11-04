@@ -11,7 +11,7 @@ import numpy as np
 from pv01_examples.paths import SETTINGS_SUFFIXES
 from pv01_jax.calibrate import calibrate_checked, calibrate_with_info
 from pv01_jax.risk import market_quote_pv01, pv_from_quotes
-from tests.jax_port.test_phase5_risk import _problem, _swap_arrays
+from tests.util.example_inputs import example_problem as _problem, example_swap_arrays as _swap_arrays
 
 STRESS_BUMP = 1e-4
 
@@ -40,7 +40,7 @@ def _scenarios(settings_suffix: str):
     return tuple(scenarios.items())
 
 
-class TestPhase6Stress(unittest.TestCase):
+class TestStress(unittest.TestCase):
     def test_stress_scenarios_converge_and_pv01_matches_central_bumps(self):
         for suffix in SETTINGS_SUFFIXES:
             problem = _problem(suffix)

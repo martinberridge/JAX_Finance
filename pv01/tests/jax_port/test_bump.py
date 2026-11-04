@@ -22,7 +22,7 @@ def _inputs(settings_suffix: str):
     return problem, resolve_swap(swap, VALUATION_DATE), jnp.asarray(problem.q0)
 
 
-class TestPhase7Bump(unittest.TestCase):
+class TestBump(unittest.TestCase):
     def test_bump_matches_market_quote_pv01(self):
         """JAX bump-and-recalibrate PV01 against AD on the real config.
 
@@ -30,7 +30,7 @@ class TestPhase7Bump(unittest.TestCase):
         third derivative of PV in that quote. At h = 1bp the observed
         difference from AD is at most 2.5e-5 GBP/bp (on buckets up to about
         6,000 GBP/bp). The tolerance starts from the 0.01 GBP/bp of the
-        opt-in legacy bump comparison in test_phase5_risk and is tightened to
+        opt-in legacy bump comparison in test_market_quote_risk and is tightened to
         1e-3, still 40x the observed truncation error.
         """
         for suffix in SETTINGS_SUFFIXES:

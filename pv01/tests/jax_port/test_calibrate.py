@@ -61,7 +61,7 @@ def _inputs(settings_suffix: str):
     return problem, q0, z_expected
 
 
-class TestPhase4Calibration(unittest.TestCase):
+class TestCalibration(unittest.TestCase):
     def test_calibrate_matches_hand_coded_calibrator(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):

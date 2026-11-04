@@ -43,7 +43,7 @@ def _provider(settings_suffix):
     )
 
 
-class TestPhase2Interpolators(unittest.TestCase):
+class TestInterpolators(unittest.TestCase):
     def test_values_jacobians_and_gradients_match_calibrated_curves(self):
         for settings_suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=settings_suffix):

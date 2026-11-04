@@ -73,7 +73,7 @@ def _z0(problem, provider):
     )
 
 
-class TestPhase3SwapPricer(unittest.TestCase):
+class TestSwapPricer(unittest.TestCase):
     def test_swap_pv_matches_production_pricer(self):
         swap = _swap()
         swap_arrays = resolve_swap(swap, VALUATION_DATE)

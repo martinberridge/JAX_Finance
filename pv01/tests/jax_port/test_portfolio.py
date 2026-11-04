@@ -67,7 +67,7 @@ def _portfolio_swaps():
     )
 
 
-class TestPhase5PortfolioRisk(unittest.TestCase):
+class TestPortfolioRisk(unittest.TestCase):
     def test_batched_market_quote_pv01_matches_per_trade_loop(self):
         problem = _problem()
         q = jnp.asarray(problem.q0)

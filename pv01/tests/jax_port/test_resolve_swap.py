@@ -53,7 +53,7 @@ def _provider():
     return calibrator.calibrate(_config(), _market_data(), VALUATION_DATE)
 
 
-class TestPhase1ResolveSwap(unittest.TestCase):
+class TestResolveSwap(unittest.TestCase):
     def test_resolve_swap_matches_reference_pv(self):
         swap = _swap()
         arrays = resolve_swap(swap, VALUATION_DATE)

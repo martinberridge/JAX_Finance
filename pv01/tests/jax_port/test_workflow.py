@@ -8,8 +8,8 @@ from pv01_jax.workflow import price_and_risk
 GOLDEN_DIR = PROJECT_DIR / "tests" / "golden"
 
 
-class TestPhase7Workflow(unittest.TestCase):
-    """price_and_risk against the goldens, at the delta=0.01 GBP used by test_phase5e_jax_example."""
+class TestWorkflow(unittest.TestCase):
+    """price_and_risk against the goldens, at the delta=0.01 GBP used by test_jax_example."""
 
     def test_price_and_risk_matches_golden_pv_and_mqs(self):
         for suffix in SETTINGS_SUFFIXES:

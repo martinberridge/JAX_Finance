@@ -67,7 +67,7 @@ def _swap():
     )
 
 
-class TestPhase3ZeroRatePV01(unittest.TestCase):
+class TestZeroRatePV01(unittest.TestCase):
     def test_zero_rate_pv01_matches_hand_coded_parameter_sensitivities(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):

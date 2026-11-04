@@ -30,7 +30,7 @@ from pv01_pricer.rates_provider import ImmutableRatesProvider
 from pv01_pricer.swap_pricer import DiscountingSwapTradePricer
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import ResolvedTrade, create_test_swap, resolve_calibration_trade
-from tests.util.bump import bump_pv01, bumped_market_data
+from pv01_pricer.bump import bump_pv01, bumped_market_data
 
 LINEAR = "-linear-settings"
 CURVES = ("discount_curve", "libor_curve")

@@ -20,7 +20,6 @@ from pv01_examples.multicurve2.calibration_interpolation_example import (
 )
 from pv01_examples.export_utils import read_mqs, read_pv
 from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, SETTINGS_SUFFIXES
-from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
 from pv01_jax.risk import (
     cross_gamma,
     market_quote_pv01,
@@ -31,7 +30,8 @@ from pv01_loader.quotes_csv_loader import load_market_data
 from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
-from tests.util.bump import bump_pv01
+from pv01_pricer.bump import bump_pv01
+from tests.util.example_inputs import example_problem as _problem, example_swap_arrays as _swap_arrays
 
 _PROJECT_DIR = Path(__file__).resolve().parents[2]
 _GOLDEN_DIR = _PROJECT_DIR / "tests" / "golden"
@@ -56,28 +56,6 @@ def _config(settings_suffix: str):
 
 
 @lru_cache(maxsize=None)
-def _problem(settings_suffix: str):
-    return resolve_calibration_problem(
-        _config(settings_suffix),
-        _market_data(),
-        VALUATION_DATE,
-    )
-
-
-@lru_cache(maxsize=None)
-def _swap_arrays():
-    swap = create_test_swap(
-        VALUATION_DATE,
-        SWAP_PERIOD_TO_START_MONTHS,
-        SWAP_TENOR_YEARS,
-        BuySell.BUY,
-        SWAP_NOTIONAL,
-        SWAP_COUPON,
-    )
-    return resolve_swap(swap, VALUATION_DATE)
-
-
-@lru_cache(maxsize=None)
 def _hand_coded_bump_pv01(settings_suffix: str):
     return bump_pv01(
         _config(settings_suffix),
@@ -99,7 +77,7 @@ def _resolved_swap():
     )
 
 
-class TestPhase5MarketQuoteRisk(unittest.TestCase):
+class TestMarketQuoteRisk(unittest.TestCase):
     def test_cross_gamma_is_symmetric(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):

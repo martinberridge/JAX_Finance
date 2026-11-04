@@ -8,8 +8,8 @@ import numpy as np
 from pv01_jax.arrays import CalibBlock, CurveSpec, FloatLegArrays, LegArrays, SwapArrays
 
 
-class TestPhase1ArrayPytree(unittest.TestCase):
-    def test_phase1_arrays_are_jax_trees_with_static_metadata(self):
+class TestArrayPytree(unittest.TestCase):
+    def test_arrays_are_jax_trees_with_static_metadata(self):
         fixed_leg = LegArrays(
             start=np.array([0.0, 0.5], dtype=np.float64),
             end=np.array([0.5, 1.0], dtype=np.float64),

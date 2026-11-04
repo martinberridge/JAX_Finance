@@ -8,12 +8,12 @@ from pv01_examples.jax.write_jax_goldens import (
     compute_values,
     golden_path,
 )
-from tests.jax_port.test_phase5_risk import _problem
+from tests.util.example_inputs import example_problem as _problem
 
 _GOLDEN_WRITER = "pv01_examples/jax/write_jax_goldens.py"
 
 
-class TestPhase6JaxRegression(unittest.TestCase):
+class TestJaxRegression(unittest.TestCase):
     def test_jax_risk_values_match_frozen_goldens(self):
         for suffix in SETTINGS_SUFFIXES:
             path = golden_path(suffix)

@@ -117,7 +117,7 @@ def _swap_pv_from_quotes(problem, swap_arrays, quotes, solve):
     )
 
 
-class TestPhase4ImplicitDerivatives(unittest.TestCase):
+class TestImplicitDerivatives(unittest.TestCase):
     def test_quote_jacobian_matches_hand_coded_calibration_jacobian(self):
         for suffix in SETTINGS_SUFFIXES:
             with self.subTest(settings_suffix=suffix):

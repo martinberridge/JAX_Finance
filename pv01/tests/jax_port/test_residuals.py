@@ -18,7 +18,7 @@ from pv01_pricer.instrument_pricers import par_spread
 from pv01_pricer.rates_curve_calibrator import RatesCurveCalibrator
 from pv01_pricer.rates_provider import ImmutableRatesProvider
 from pv01_product.resolved_trades import ResolvedTrade, resolve_calibration_trade
-from tests.util.bump import bumped_market_data
+from pv01_pricer.bump import bumped_market_data
 
 _ATOL = 1e-14
 _FD_STEP = 1e-6
@@ -115,7 +115,7 @@ def _oracle_residuals(
     return np.asarray([par_spread(trade, provider) for trade in trades])
 
 
-class TestPhase3CalibrationResiduals(unittest.TestCase):
+class TestCalibrationResiduals(unittest.TestCase):
     def _inputs(self, settings_suffix: str):
         config = _config(settings_suffix)
         market_data = _market_data()

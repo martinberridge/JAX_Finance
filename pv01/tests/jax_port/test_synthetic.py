@@ -19,7 +19,7 @@ def _calibrated(n_quotes: int, interpolator: str):
     return problem, swap, q, calibrate(problem, q)
 
 
-class TestPhase7Synthetic(unittest.TestCase):
+class TestSynthetic(unittest.TestCase):
     """Structural checks on the synthetic problem; none need a reference implementation."""
 
     def test_calibrates_for_all_sizes_and_interpolators(self):
