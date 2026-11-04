@@ -1,7 +1,13 @@
+# The versions the test and benchmark results were produced with. The packages' own
+# dependency ranges are in pyproject.toml and pv01/pyproject.toml.
 numpy==2.4.4
 scipy==1.17.1
 jax==0.10.0
 jaxlib==0.10.0
+equinox==0.13.8
+pandas==3.0.6
+python-dateutil==2.9.0.post0
 QuantLib==1.42.1
 polars==1.41.0
-equinox==0.13.8
+matplotlib==3.11.2
+pytest==9.1.1

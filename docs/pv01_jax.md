@@ -44,10 +44,10 @@ RUN_SLOW=1 python -m unittest discover -s tests -t .
 
 `RUN_SLOW=1` enables the opt-in hand-coded bump-and-recalibrate comparison.
 The NCS reference-correctness bump test is particularly slow. To run only the
-Phase 6 golden regression test:
+frozen golden regression test:
 
 ```bash
-env -u RUN_SLOW python -m unittest -v tests.jax_port.test_phase6_regression
+env -u RUN_SLOW python -m unittest -v tests.jax_port.test_frozen_goldens
 ```
 
 Run the JAX calibration and risk example, which writes to
@@ -67,8 +67,8 @@ Run the risk benchmark. The NCS hand-coded bump timing is skipped unless
 `--slow` is supplied:
 
 ```bash
-python -m pv01_jax.benchmark
-python -m pv01_jax.benchmark --slow
+python -m benchmarks.real_config
+python -m benchmarks.real_config --slow
 ```
 
 ## Known differences from Strata

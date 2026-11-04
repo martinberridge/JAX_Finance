@@ -9,6 +9,50 @@ automatic differentiation instead of by hand or by bumping. It covers three prob
 - **Swap PV01 through curve calibration:** sensitivity to every market quote, with the
   derivative taken through the Newton calibration by the implicit function theorem.
 
+## Repository layout
+
+```
+├── jax_finance/   Black-76 and SABR kernels; FX market-data helpers in jax_finance.fx
+├── pv01/          Swap PV01: the pv01_jax kernel, its NumPy reference, data, tests, benchmarks
+├── examples/      Runnable demos: black.py, sabr.py, pv01.py
+├── tests/         Tests for jax_finance
+├── docs/          Source of the GitHub Pages blog, plus the PV01 write-up
+└── notes/         Working history: refactor plan and build prompts. Not needed for review.
+```
+
+`jax_finance` and `pv01` install separately, each with its own `pyproject.toml`, because
+`pv01` carries a Strata-style input layer that the Black and SABR code doesn't need.
+[`pv01/README.md`](pv01/README.md) describes its packages and tests.
+
+## Reviewing this code
+
+A suggested order, smallest first:
+
+1. **[`jax_finance/black.py`](jax_finance/black.py)** with
+   [`tests/test_black.py`](tests/test_black.py): the whole pattern in about 120 lines.
+2. **[`jax_finance/sabr.py`](jax_finance/sabr.py)** with
+   [`tests/test_sabr.py`](tests/test_sabr.py) and
+   [`tests/test_regression.py`](tests/test_regression.py).
+3. **[`pv01/pv01_jax/risk.py`](pv01/pv01_jax/risk.py)** and
+   [`calibrate.py`](pv01/pv01_jax/calibrate.py): AD through the calibration, with
+   [`test_implicit_derivatives`](pv01/tests/jax_port/test_implicit_derivatives.py) and
+   [`test_bump`](pv01/tests/jax_port/test_bump.py).
+4. **[`pv01/benchmarks/`](pv01/benchmarks/)**: how the numbers below were measured.
+
+What the tests compare against:
+
+| Code | Independent reference |
+|---|---|
+| Black-76 Greeks | Closed forms written with `math.erf` |
+| SABR vols | QuantLib `sabrVolatility`, captured in [`tests/golden/`](tests/golden/) |
+| SABR calibration | Recovery of known parameters; `scan` against a ported Python loop |
+| FX helpers | Delta and strike round trips; quoted forwards against the rate differential |
+| PV01 | Hand-coded sensitivities, bump-and-recalibrate, finite differences |
+
+The PV01 goldens are regression baselines from this code, not Strata output, and a direct
+comparison with Strata hasn't been run. [`docs/pv01_jax.md`](docs/pv01_jax.md) lists the known
+convention differences.
+
 ## Architecture: kernel → transform → risk
 
 Each problem has the same three layers.
@@ -97,13 +141,13 @@ vary between runs. The full tables are in
 python3 -m venv jax_env
 source jax_env/bin/activate
 pip install -e ".[fx,dev]"           # jax_finance, the FX helpers (QuantLib, SciPy, Polars), pytest
-pip install -e "pv01[bench]"  # pv01_jax and the Strata-port layers, matplotlib
+pip install -e "pv01[bench]"         # pv01_jax and the Strata-port layers, matplotlib
 
-pytest                               # root suite: Black, SABR, FX and regression tests (about a minute)
+pytest                               # root suite: Black, SABR, FX and regression tests (about two minutes)
 (cd pv01 && python -m unittest discover -s tests -t .)
-python examples/pv01.py                   # PV and PV01 table for each interpolator
-python examples/black.py   # Black-76 price and Greeks
-python examples/sabr.py                   # SABR calibration: synthetic smiles, then EURUSD
+python examples/pv01.py              # PV and PV01 table for each interpolator
+python examples/black.py             # Black-76 price and Greeks
+python examples/sabr.py              # SABR calibration: synthetic smiles, then EURUSD
 (cd pv01 && python -m benchmarks.real_config)
 (cd pv01 && python -m benchmarks.scaling)
 ```
