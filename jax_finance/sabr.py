@@ -21,7 +21,7 @@ z = 0, z/x(z) is computed from its series 1 - rho z/2 - (3 rho^2 - 2) z^2/12
 
 This replaces the pre-refactor `SABR_JAX.sabr_implied_vol`, which returned
 its eps floor for every K > F and had the (1-beta)^2/24 coefficients a
-factor of 4 too small (docs/refactor-plan.md, Step 0.5). It agrees with
+factor of 4 too small (notes/refactor-plan.md, Step 0.5). It agrees with
 QuantLib's `sabrVolatility` to float64 precision.
 
 Calibration fits (alpha, rho, nu) per expiry with beta fixed, by Adam on a

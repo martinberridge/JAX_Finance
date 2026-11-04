@@ -6,7 +6,7 @@ For each of three curve interpolators (linear, double quadratic, natural
 cubic spline) it calibrates the GBP OIS discount and LIBOR 6M forward curves
 from Strata's CalibrationInterpolationExample configuration, prices an 8y
 swap, and takes the PV01 to every market quote in one reverse-mode pass
-through the calibration. The kernel is `pv01_jax` in pv01 (see
+through the calibration. The kernel is `pv01_jax` in pv01/ (see
 docs/pv01_jax.md).
 
 Setup: `pip install -e pv01` first. The example CSVs are read from

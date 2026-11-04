@@ -1,6 +1,6 @@
 """
 One-off capture of the Black and SABR goldens for the Step 1 regression
-tests (Step 0.5 of docs/refactor-plan.md).
+tests (Step 0.5 of notes/refactor-plan.md).
 
 It writes:
 
@@ -45,8 +45,10 @@ plan's original goldens couldn't support the Step 1 tests:
 Only `black_v0.csv` depends on the old code. It reproduces only on the
 pre-Step-1 commit recorded in the manifest: Step 1 moves `compute_greeks_single`
 into `jax_finance` and reduces the script to a demo, so running this
-afterwards would capture the new code. Do not re-run it. It refuses to
-overwrite existing output files.
+afterwards would capture the new code. The script has since moved to
+examples/black.py, so the import below now fails, which is the safe outcome:
+to reproduce the golden, check out that commit. Do not re-run it here. It
+also refuses to overwrite existing output files.
 """
 
 import csv

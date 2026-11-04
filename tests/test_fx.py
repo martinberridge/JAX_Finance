@@ -1,7 +1,7 @@
 """
 Tests for the FX market-data helpers in jax_finance.fx, which need the [fx]
 extra. Each of the first four tests fails on one of the bugs fixed after
-Step 1 (docs/refactor-plan.md).
+Step 1 (notes/refactor-plan.md).
 """
 
 import numpy as np

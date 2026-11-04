@@ -51,7 +51,7 @@ pv01 = market_quote_pv01(problem, swap, q)   # jax.grad of pv_from_quotes, in GB
 
 `problem` comes from `pv01_jax.resolve.resolve_calibration_problem` (the Strata example
 configuration) or `pv01_jax.synthetic.synthetic_problem` (any size).
-[`JAX_PV01.py`](JAX_PV01.py) runs the whole sequence, and
+[`examples/pv01.py`](examples/pv01.py) runs the whole sequence, and
 [`docs/pv01_jax.md`](docs/pv01_jax.md) maps the modules.
 
 ## Benchmark: AD costs about one extra calibration; bumping costs 2N
@@ -89,7 +89,7 @@ vary between runs. The full tables are in
 | 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](pv01/pv01_jax/risk.py) |
 | 3 | Getting the Greeks using JAX: implementation | Draft | [`jax_finance/black.py`](jax_finance/black.py) |
 | 4 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
-| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`pv01/pv01_jax`](pv01/pv01_jax), demo [`JAX_PV01.py`](JAX_PV01.py) |
+| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`pv01/pv01_jax`](pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
 
 ## Quickstart
 
@@ -101,9 +101,9 @@ pip install -e "pv01[bench]"  # pv01_jax and the Strata-port layers, matplotlib
 
 pytest                               # root suite: Black, SABR, FX and regression tests (about a minute)
 (cd pv01 && python -m unittest discover -s tests -t .)
-python JAX_PV01.py                   # PV and PV01 table for each interpolator
-python JAX_black_option_pricing.py   # Black-76 price and Greeks
-python SABR_JAX.py                   # SABR calibration: synthetic smiles, then EURUSD
+python examples/pv01.py                   # PV and PV01 table for each interpolator
+python examples/black.py   # Black-76 price and Greeks
+python examples/sabr.py                   # SABR calibration: synthetic smiles, then EURUSD
 (cd pv01 && python -m benchmarks.real_config)
 (cd pv01 && python -m benchmarks.scaling)
 ```

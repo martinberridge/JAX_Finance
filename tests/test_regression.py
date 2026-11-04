@@ -1,9 +1,10 @@
 """
 Regression tests for the jax_finance package against the Step 0.5 goldens
-(docs/refactor-plan.md, Step 1). How each golden was made, and why, is in
+(notes/refactor-plan.md, Step 1). How each golden was made, and why, is in
 tests/golden/capture_v0.py.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -185,37 +186,24 @@ def test_calibration_recovers_true_parameters(calib):
 
 
 # -----------------------------------------------------------------------------
-# Shims and demos
+# Demos
 # -----------------------------------------------------------------------------
-FX_UTILS_NAMES = ["tenor_to_year_fraction", "get_forwards", "FXVolSurface",
-                  "flatten_tuple_to_dict", "build_vol_surfaces",
-                  "get_fx_market_data_for_calibration"]
-FX_DATA_NAMES = ["FWD_Points", "atm", "rrs", "bfs", "rates", "spot"]
-
-
-def test_fx_shims_expose_old_names():
-    pytest.importorskip("QuantLib")
-    import fx_data
-    import fx_utils
-    import jax_finance.fx.data
-    import jax_finance.fx.utils
-
-    for name in FX_UTILS_NAMES:
-        assert getattr(fx_utils, name) is getattr(jax_finance.fx.utils, name), name
-    for name in FX_DATA_NAMES:
-        assert getattr(fx_data, name) is getattr(jax_finance.fx.data, name), name
-
-
 def _run_demo(script):
-    proc = subprocess.run([sys.executable, script], cwd=ROOT, capture_output=True,
-                          text=True, timeout=600)
+    env = {**os.environ, "PYTHONPATH": str(ROOT)}
+    proc = subprocess.run([sys.executable, str(ROOT / "examples" / script)], cwd=ROOT,
+                          env=env, capture_output=True, text=True, timeout=600)
     assert proc.returncode == 0, proc.stderr[-2000:]
 
 
 def test_black_demo_runs():
-    _run_demo("JAX_black_option_pricing.py")
+    _run_demo("black.py")
 
 
 def test_sabr_demo_runs():
     pytest.importorskip("QuantLib")
-    _run_demo("SABR_JAX.py")
+    _run_demo("sabr.py")
+
+
+def test_pv01_demo_runs():
+    pytest.importorskip("pv01_jax")
+    _run_demo("pv01.py")

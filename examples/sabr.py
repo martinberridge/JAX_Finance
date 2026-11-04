@@ -1,15 +1,9 @@
 """
 SABR calibration with JAX automatic differentiation (Hagan 2002): a demo.
 
-The model and calibrator live in `jax_finance.sabr` (formula in its
-docstring), and the FX market-data helpers in `jax_finance.fx`, which needs
-the `[fx]` extra. Importing `jax_finance` turns on float64 (x64).
-Run from the repo root, or after `pip install -e .[fx]`.
-
-The pre-refactor version of this file had two bugs in `sabr_implied_vol`
-(every K > F returned its eps floor, and the (1-beta)^2/24 coefficients
-were 4x too small), so its demo output was wrong; see
-docs/refactor-plan.md, Step 0.5.
+The model and calibrator are in `jax_finance.sabr`, with the formula in its
+docstring, and the FX market-data helpers are in `jax_finance.fx`.
+Setup: `pip install -e ".[fx]"` at the repo root.
 """
 
 import numpy as np

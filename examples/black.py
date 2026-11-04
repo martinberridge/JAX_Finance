@@ -1,22 +1,13 @@
 """
 FX option pricing with Black-76 and JAX automatic differentiation: a demo.
 
-The pricer lives in `jax_finance.black` (formula and Greek conventions in
-its docstring). Importing `jax_finance` turns on float64 (x64), so the
-output differs from the pre-refactor float32 version in the last digits.
-Run from the repo root, or after `pip install -e .`.
+The pricer is in `jax_finance.black`, with the formula and Greek conventions
+in its docstring. Setup: `pip install -e .` at the repo root.
 """
 
 import jax.numpy as jnp
 
-# black_price and compute_greeks_single are unused here, but importing them
-# keeps `from JAX_black_option_pricing import ...` working for old callers.
-from jax_finance.black import (
-    FXOptionPricer,
-    batch_price_and_greeks,
-    black_price,
-    compute_greeks_single,
-)
+from jax_finance.black import FXOptionPricer, batch_price_and_greeks
 
 
 if __name__ == "__main__":
