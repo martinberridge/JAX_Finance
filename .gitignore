@@ -1,18 +1,20 @@
+# Environments and local config
 jax_env/
 .venv/
+.env
+.vscode/
+
+# Python build and test byproducts
 __pycache__/
-!README.md
-.vscode
-dv01/python/pv01_python.egg-info
+*.egg-info/
 .pytest_cache/
-dv01/python/pv01_python.egg-info
-strata
-dv01/python/target/example-output/*.csv
 
-# Test and benchmark run logs (docs/refactor-plan.md, Monitoring long runs)
+# Editor swap files
+*.swp
+
+# Regenerable output: example CSVs, test and benchmark logs
+target/
 /test-run.log
-dv01/python/target/*.log
-dv01/python/target/results.xml
 
-# Editable-install metadata for the root package
-/jax_finance.egg-info/
+# Local Strata checkout
+strata

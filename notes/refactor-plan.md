@@ -40,6 +40,24 @@ far above Step 1's `rtol=1e-6`. The SABR goldens now come from QuantLib,
 the Black golden is the old code in float64, Step 1 fixes both SABR bugs,
 and Step 1's test bullets are amended to match. Step 0.5 records the details.
 
+**Revision (2026-11-04).** All steps are done. The repo was then reorganised
+so a reviewer can find their way around it. Paths in this document are as they
+were when each step ran, so read them through this map:
+
+| Then | Now |
+|---|---|
+| `dv01/python/` | `pv01/` |
+| `dv01/examples/src/main/resources/example-calibration/` | `pv01/data/` |
+| `JAX_black_option_pricing.py`, `SABR_JAX.py`, `JAX_PV01.py` | `examples/black.py`, `examples/sabr.py`, `examples/pv01.py` |
+| `fx_utils.py`, `fx_data.py` (shims) | removed; use `jax_finance.fx` |
+| `tests/util/bump.py` (shim) | removed; use `pv01_pricer.bump` |
+| `tests/jax_port/test_phaseN_*.py` | named by subject; see `pv01/README.md` |
+| `docs/refactor-plan.md`, `dv01/python/prompts/` | `notes/` |
+| `docs/assets/dv01_scaling.png` | `docs/assets/pv01_scaling.png` |
+
+This also settles the first "Still open" question: the demos moved to
+`examples/`, without root-level shims.
+
 **Running this plan.** Do one step per session, commit after each, and stop
 at the end of the step. Wherever a step says **stop**, report what was found
 and wait for a decision rather than choosing.
@@ -635,7 +653,7 @@ package importing `tests`), not on Step 1.
   - It takes loaded objects, not file paths. That keeps `pv01_jax` free of
     any dependency on `pv01_examples`, and lets the API's in-memory curve
     definitions call it later.
-  - It's the `price_and_risk` that [api-plan.md](api-plan.md) proposes, with
+  - It's the `price_and_risk` that [api-plan.md](../docs/api-plan.md) proposes, with
     the same return shape.
   - `pv01_jax/__init__.py` doesn't re-export it, for the same reason as
     `resolve` in Step 2: it imports the Strata input layer.
