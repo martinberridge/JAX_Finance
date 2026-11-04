@@ -1,5 +1,11 @@
 """Benchmark JAX market-quote risk functions against bump-and-recalibrate.
 
+On the 19-quote GBP config for each interpolator: AD (reverse mode and
+``jvp``), bump-and-recalibrate on the same JAX kernel (``vmap`` and
+``lax.map``), cross-gamma, a 100-swap batch, and the legacy NumPy
+``bump_pv01`` (NCS only with ``--slow``). JAX rows report compile time
+separately and the median of 20 runs after warm-up.
+
 Run from dv01/python: ``python -m benchmarks.real_config [--slow]``. Writes
 ``benchmarks/results/real_config.md``.
 """
@@ -7,13 +13,11 @@ Run from dv01/python: ``python -m benchmarks.real_config [--slow]``. Writes
 from __future__ import annotations
 
 import argparse
-from statistics import median
 from time import perf_counter
-from typing import Callable
 
-import jax
 import jax.numpy as jnp
 
+from benchmarks.timing import time_jitted
 from pv01_examples.common import (
     SWAP_COUPON,
     SWAP_NOTIONAL,
@@ -25,6 +29,8 @@ from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, PYTHON_DIR
 from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
 from pv01_jax.risk import (
     batch_market_quote_pv01,
+    bump_market_quote_pv01,
+    bump_market_quote_pv01_sequential,
     cross_gamma,
     market_quote_pv01,
     parallel_pv01,
@@ -37,20 +43,6 @@ from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
 
 OUTPUT_PATH = PYTHON_DIR / "benchmarks" / "results" / "real_config.md"
-
-
-def _time_jitted(function: Callable, arguments: tuple) -> tuple[float, float]:
-    compiled = jax.jit(function)
-    start = perf_counter()
-    compiled(*arguments).block_until_ready()
-    compile_seconds = perf_counter() - start
-
-    durations = []
-    for _ in range(20):
-        start = perf_counter()
-        compiled(*arguments).block_until_ready()
-        durations.append(perf_counter() - start)
-    return compile_seconds, median(durations)
 
 
 def _load_inputs(settings_suffix: str):
@@ -120,6 +112,16 @@ def run_benchmark(include_slow: bool = False) -> str:
                 (quotes,),
             ),
             (
+                "bump_market_quote_pv01 (JAX, vmap)",
+                lambda q: bump_market_quote_pv01(problem, swap_arrays, q),
+                (quotes,),
+            ),
+            (
+                "bump_market_quote_pv01_sequential (JAX, lax.map)",
+                lambda q: bump_market_quote_pv01_sequential(problem, swap_arrays, q),
+                (quotes,),
+            ),
+            (
                 "cross_gamma",
                 lambda q: cross_gamma(problem, swap_arrays, q),
                 (quotes,),
@@ -131,7 +133,7 @@ def run_benchmark(include_slow: bool = False) -> str:
             ),
         )
         for name, function, arguments in benchmarks:
-            compile_seconds, median_seconds = _time_jitted(function, arguments)
+            compile_seconds, median_seconds = time_jitted(function, arguments)
             rows.append(
                 (
                     suffix,
@@ -142,10 +144,10 @@ def run_benchmark(include_slow: bool = False) -> str:
             )
 
         if suffix == "-ncs-settings" and not include_slow:
-            rows.append((suffix, "bump_pv01", "—", "SKIPPED (pass --slow)"))
+            rows.append((suffix, "bump_pv01 (legacy NumPy)", "—", "SKIPPED (pass --slow)"))
         else:
             elapsed = _time_hand_coded_bump(config, market_data, swap)
-            rows.append((suffix, "bump_pv01", "—", _format_seconds(elapsed)))
+            rows.append((suffix, "bump_pv01 (legacy NumPy)", "—", _format_seconds(elapsed)))
 
     lines = [
         "| Settings suffix | Function | Compile time | Median / wall time |",
