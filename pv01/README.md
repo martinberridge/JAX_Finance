@@ -23,7 +23,7 @@ python /path/to/python/pv01_examples/multicurve2/calibration_interpolation_examp
 
 ## Inputs
 
-Reads CSV files from `examples/src/main/resources/example-calibration/`.
+Reads CSV files from `data/`.
 
 ## Outputs
 

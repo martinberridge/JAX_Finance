@@ -7,9 +7,9 @@ shift (``parallel_pv01``, one number rather than N), and 2N bump-and-
 recalibrate scenarios batched with ``vmap`` or run one at a time with
 ``lax.map``. Compile time is reported separately from the median of 20 runs.
 
-Run from dv01/python: ``python -m benchmarks.scaling``. Writes the table to
+Run from pv01: ``python -m benchmarks.scaling``. Writes the table to
 ``benchmarks/results/scaling.md`` and a log-log chart to
-``docs/assets/dv01_scaling.png`` at the repo root. Needs the ``[bench]``
+``docs/assets/pv01_scaling.png`` at the repo root. Needs the ``[bench]``
 extra (matplotlib).
 """
 
@@ -20,7 +20,7 @@ import argparse
 import jax.numpy as jnp
 
 from benchmarks.timing import RUNS, time_jitted
-from pv01_examples.paths import PYTHON_DIR
+from pv01_examples.paths import PROJECT_DIR
 from pv01_jax.risk import (
     bump_market_quote_pv01,
     bump_market_quote_pv01_sequential,
@@ -30,8 +30,8 @@ from pv01_jax.risk import (
 from pv01_jax.synthetic import synthetic_problem
 
 SIZES = (10, 20, 40, 80, 160)
-TABLE_PATH = PYTHON_DIR / "benchmarks" / "results" / "scaling.md"
-CHART_PATH = PYTHON_DIR.parents[1] / "docs" / "assets" / "dv01_scaling.png"
+TABLE_PATH = PROJECT_DIR / "benchmarks" / "results" / "scaling.md"
+CHART_PATH = PROJECT_DIR.parent / "docs" / "assets" / "pv01_scaling.png"
 
 # (key, label, function, line style); categorical slots 1-4 in this order
 FUNCTIONS = (

@@ -33,8 +33,8 @@ from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
 from tests.util.bump import bump_pv01
 
-_PYTHON_DIR = Path(__file__).resolve().parents[2]
-_GOLDEN_DIR = _PYTHON_DIR / "tests" / "golden"
+_PROJECT_DIR = Path(__file__).resolve().parents[2]
+_GOLDEN_DIR = _PROJECT_DIR / "tests" / "golden"
 
 
 @lru_cache(maxsize=None)

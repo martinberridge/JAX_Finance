@@ -1,6 +1,6 @@
-# DV01 benchmark before the refactor
+# PV01 benchmark before the refactor
 
-Output of `pv01_jax/benchmark.py` from `target/benchmark.md` (2026-10-31), kept for the Step 5 comparison in `docs/refactor-plan.md`. Not regenerated.
+Output of `pv01_jax/benchmark.py` from `target/benchmark.md` (2026-10-31), kept for the Step 5 comparison in `notes/refactor-plan.md`. Not regenerated.
 
 | Settings suffix | Function | Compile time | Median / wall time |
 |---|---|---:|---:|

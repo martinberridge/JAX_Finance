@@ -6,7 +6,7 @@ On the 19-quote GBP config for each interpolator: AD (reverse mode and
 ``bump_pv01`` (NCS only with ``--slow``). JAX rows report compile time
 separately and the median of 20 runs after warm-up.
 
-Run from dv01/python: ``python -m benchmarks.real_config [--slow]``. Writes
+Run from pv01: ``python -m benchmarks.real_config [--slow]``. Writes
 ``benchmarks/results/real_config.md``.
 """
 
@@ -25,7 +25,7 @@ from pv01_examples.common import (
     SWAP_TENOR_YEARS,
     VALUATION_DATE,
 )
-from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, PYTHON_DIR, SETTINGS_SUFFIXES
+from pv01_examples.paths import CONFIG_STR, PATH_CONFIG, PATH_QUOTES, PROJECT_DIR, SETTINGS_SUFFIXES
 from pv01_jax.resolve import resolve_calibration_problem, resolve_swap
 from pv01_jax.risk import (
     batch_market_quote_pv01,
@@ -42,7 +42,7 @@ from pv01_pricer.bump import bump_pv01
 from pv01_product.conventions import BuySell
 from pv01_product.resolved_trades import create_test_swap
 
-OUTPUT_PATH = PYTHON_DIR / "benchmarks" / "results" / "real_config.md"
+OUTPUT_PATH = PROJECT_DIR / "benchmarks" / "results" / "real_config.md"
 
 
 def _load_inputs(settings_suffix: str):

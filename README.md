@@ -31,7 +31,7 @@ $$V = e^{-rT}\left[\omega F N(\omega d_1) - \omega K N(\omega d_2)\right], \qqua
 with $z/x(z)$ replaced by its series near the money and a "double where", so values and
 gradients stay finite at $K = F$. The formula is in the module docstring.
 
-**PV01 through calibration** ([`dv01/python/pv01_jax`](dv01/python/pv01_jax)). The
+**PV01 through calibration** ([`pv01/pv01_jax`](pv01/pv01_jax)). The
 curves' zero rates $z$ are calibrated so that each instrument's par rate matches its
 quote: $r(z, q) = \mathrm{par}(z) - q = 0$, solved by Newton. The PV01 to the quotes is
 
@@ -40,7 +40,7 @@ $$\frac{\partial\,\mathrm{PV}}{\partial q} = \frac{\partial\,\mathrm{PV}}{\parti
 `lax.custom_root` applies this implicit-function rule, so reverse mode never
 differentiates through the Newton iterations: it costs one transposed solve with the
 Jacobian Newton already uses. The minimal path is two functions in
-[`pv01_jax/risk.py`](dv01/python/pv01_jax/risk.py):
+[`pv01_jax/risk.py`](pv01/pv01_jax/risk.py):
 
 ```python
 from pv01_jax.risk import market_quote_pv01, pv_from_quotes
@@ -56,7 +56,7 @@ configuration) or `pv01_jax.synthetic.synthetic_problem` (any size).
 
 ## Benchmark: AD costs about one extra calibration; bumping costs 2N
 
-![Median time per market-quote PV01 against the number of quotes, log-log: the two AD lines rise from 0.3 to 7 ms between 10 and 160 quotes, the two bump-and-recalibrate lines from 0.6–2.7 ms to 1.8–2.3 s](docs/assets/dv01_scaling.png)
+![Median time per market-quote PV01 against the number of quotes, log-log: the two AD lines rise from 0.3 to 7 ms between 10 and 160 quotes, the two bump-and-recalibrate lines from 0.6–2.7 ms to 1.8–2.3 s](docs/assets/pv01_scaling.png)
 
 Reverse-mode AD costs 1.3–1.4 calibrations, whatever the number of quotes N. Bumping
 each quote up and down costs 2N recalibrations: 297 calibrations' worth at N = 160,
@@ -78,18 +78,18 @@ The NumPy row is legacy context: a hand-written, uncompiled NumPy port of the St
 pipeline, so its gap mixes method and implementation. It isn't the comparison the chart
 makes. Timings are medians of 20 runs after compilation, on CPU (JAX 0.10.0, WSL2), and
 vary between runs. The full tables are in
-[`real_config.md`](dv01/python/benchmarks/results/real_config.md) and
-[`scaling.md`](dv01/python/benchmarks/results/scaling.md).
+[`real_config.md`](pv01/benchmarks/results/real_config.md) and
+[`scaling.md`](pv01/benchmarks/results/scaling.md).
 
 ## Roadmap
 
 | # | Post | Status | Code |
 |---|---|---|---|
 | 1 | [Getting the Greeks from autodiff: why options look like neural networks](docs/_posts/2026-09-10-Get-The-Greeks-Using_Autodiff.md) | Published 2026-09-10 | Concepts behind [`jax_finance/black.py`](jax_finance/black.py) |
-| 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](dv01/python/pv01_jax/risk.py) |
+| 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](pv01/pv01_jax/risk.py) |
 | 3 | Getting the Greeks using JAX: implementation | Draft | [`jax_finance/black.py`](jax_finance/black.py) |
 | 4 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
-| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`dv01/python/pv01_jax`](dv01/python/pv01_jax), demo [`JAX_PV01.py`](JAX_PV01.py) |
+| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`pv01/pv01_jax`](pv01/pv01_jax), demo [`JAX_PV01.py`](JAX_PV01.py) |
 
 ## Quickstart
 
@@ -97,20 +97,20 @@ vary between runs. The full tables are in
 python3 -m venv jax_env
 source jax_env/bin/activate
 pip install -e ".[fx,dev]"           # jax_finance, the FX helpers (QuantLib, SciPy, Polars), pytest
-pip install -e "dv01/python[bench]"  # pv01_jax and the Strata-port layers, matplotlib
+pip install -e "pv01[bench]"  # pv01_jax and the Strata-port layers, matplotlib
 
 pytest                               # root suite: Black, SABR, FX and regression tests (about a minute)
-(cd dv01/python && python -m unittest discover -s tests -t .)
+(cd pv01 && python -m unittest discover -s tests -t .)
 python JAX_PV01.py                   # PV and PV01 table for each interpolator
 python JAX_black_option_pricing.py   # Black-76 price and Greeks
 python SABR_JAX.py                   # SABR calibration: synthetic smiles, then EURUSD
-(cd dv01/python && python -m benchmarks.real_config)
-(cd dv01/python && python -m benchmarks.scaling)
+(cd pv01 && python -m benchmarks.real_config)
+(cd pv01 && python -m benchmarks.scaling)
 ```
 
-- The dv01 package must be an editable install: its example CSVs are read from the
+- The pv01 package must be an editable install: its example CSVs are read from the
   source tree.
-- `RUN_SLOW=1` adds the legacy bump-and-recalibrate comparisons to the dv01 suite, which
+- `RUN_SLOW=1` adds the legacy bump-and-recalibrate comparisons to the pv01 suite, which
   then takes about an hour. `benchmarks.real_config --slow` adds the slow legacy NCS bump.
 - Importing `jax_finance` or `pv01_jax` turns on 64-bit floats (`jax_enable_x64`), which
   is a process-wide JAX setting.

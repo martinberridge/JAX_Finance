@@ -5,12 +5,12 @@ import sys
 import unittest
 
 from pv01_examples.export_utils import read_mqs, read_pv
-from pv01_examples.paths import CONFIG_STR, PYTHON_DIR, SETTINGS_SUFFIXES
+from pv01_examples.paths import CONFIG_STR, PROJECT_DIR, SETTINGS_SUFFIXES
 
-OUTPUT_DIR = PYTHON_DIR / "target" / "example-output-jax"
-GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
+OUTPUT_DIR = PROJECT_DIR / "target" / "example-output-jax"
+GOLDEN_DIR = PROJECT_DIR / "tests" / "golden"
 EXAMPLE_SCRIPT = (
-    PYTHON_DIR / "pv01_examples" / "jax" / "calibration_interpolation_example_jax.py"
+    PROJECT_DIR / "pv01_examples" / "jax" / "calibration_interpolation_example_jax.py"
 )
 
 
@@ -19,7 +19,7 @@ class TestJaxCalibrationInterpolationExample(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(
             [sys.executable, str(EXAMPLE_SCRIPT)],
-            cwd=str(PYTHON_DIR.parent),
+            cwd=str(PROJECT_DIR.parent),
             check=True,
         )
 

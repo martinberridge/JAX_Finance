@@ -35,7 +35,7 @@ are returned in GBP per basis point (and cross-gamma in GBP per bp squared).
 
 ## Running it
 
-Run commands from `dv01/python/`. To run the complete unittest suite:
+Run commands from `pv01/`. To run the complete unittest suite:
 
 ```bash
 python -m unittest discover -s tests -t .

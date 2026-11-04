@@ -15,17 +15,17 @@ from pv01_pricer.rates_curve_calibrator import RatesCurveCalibrator
 from pv01_product.resolved_trades import resolve_calibration_trade
 
 VALUATION_DATE = date(2016, 8, 1)
-PYTHON_DIR = Path(__file__).resolve().parents[1]
-GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+GOLDEN_DIR = PROJECT_DIR / "tests" / "golden"
 
 
 def _run_example():
     subprocess.run(
         [
             sys.executable,
-            str(PYTHON_DIR / "pv01_examples" / "multicurve2" / "calibration_interpolation_example.py"),
+            str(PROJECT_DIR / "pv01_examples" / "multicurve2" / "calibration_interpolation_example.py"),
         ],
-        cwd=str(PYTHON_DIR.parent),
+        cwd=str(PROJECT_DIR.parent),
         check=True,
     )
 

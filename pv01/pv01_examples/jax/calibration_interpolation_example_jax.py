@@ -28,7 +28,7 @@ from pv01_examples.paths import (
     CONFIG_STR,
     PATH_CONFIG,
     PATH_QUOTES,
-    PYTHON_DIR,
+    PROJECT_DIR,
     SETTINGS_SUFFIXES,
 )
 from pv01_jax.calibrate import calibrate
@@ -40,8 +40,8 @@ from pv01_product.conventions import BuySell
 from pv01_pricer.bump import bump_pv01
 from pv01_product.resolved_trades import create_test_swap
 
-PATH_JAX_RESULTS = PYTHON_DIR / "target" / "example-output-jax"
-GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
+PATH_JAX_RESULTS = PROJECT_DIR / "target" / "example-output-jax"
+GOLDEN_DIR = PROJECT_DIR / "tests" / "golden"
 
 
 def _sensitivity_export(problem, pv01):

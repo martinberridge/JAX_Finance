@@ -19,8 +19,8 @@ from pv01_loader.rates_calibration_csv_loader import load as load_calibration
 
 
 VALUATION_DATE = date(2016, 8, 1)
-PYTHON_DIR = Path(__file__).resolve().parents[2]
-GOLDEN_DIR = PYTHON_DIR / "tests" / "golden"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+GOLDEN_DIR = PROJECT_DIR / "tests" / "golden"
 
 
 def _market_data():
