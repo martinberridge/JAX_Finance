@@ -1,4 +1,4 @@
-"""Paths within the pv01 project."""
+"""Paths within the jax_pv01 project."""
 
 from pathlib import Path
 

@@ -9,7 +9,7 @@ code, and it isn't part of the published site in `docs/`.
   and their effect on the numbers.
 - [`prompts/`](prompts/): the prompts used for each phase of the JAX port. Their phase
   numbers map to the test modules through the table in
-  [`pv01/README.md`](../pv01/README.md#tests).
+  [`jax_pv01/README.md`](../jax_pv01/README.md#tests).
 
-Both describe the repo as it was at the time, so file paths in them can be out of date.
+These describe the repo as it was at the time, so file paths in them can be out of date.
 The revision note at the top of `refactor-plan.md` maps the old paths to the new ones.

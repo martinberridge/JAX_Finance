@@ -7,7 +7,7 @@ shift (``parallel_pv01``, one number rather than N), and 2N bump-and-
 recalibrate scenarios batched with ``vmap`` or run one at a time with
 ``lax.map``. Compile time is reported separately from the median of 20 runs.
 
-Run from pv01: ``python -m benchmarks.scaling``. Writes the table to
+Run from jax_pv01: ``python -m benchmarks.scaling``. Writes the table to
 ``benchmarks/results/scaling.md`` and a log-log chart to
 ``docs/assets/pv01_scaling.png`` at the repo root. Needs the ``[bench]``
 extra (matplotlib).

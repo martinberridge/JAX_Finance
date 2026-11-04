@@ -46,12 +46,12 @@ were when each step ran, so read them through this map:
 
 | Then | Now |
 |---|---|
-| `dv01/python/` | `pv01/` |
-| `dv01/examples/src/main/resources/example-calibration/` | `pv01/data/` |
+| `dv01/python/` | `jax_pv01/` |
+| `dv01/examples/src/main/resources/example-calibration/` | `jax_pv01/data/` |
 | `JAX_black_option_pricing.py`, `SABR_JAX.py`, `JAX_PV01.py` | `examples/black.py`, `examples/sabr.py`, `examples/pv01.py` |
 | `fx_utils.py`, `fx_data.py` (shims) | removed; use `jax_finance.fx` |
 | `tests/util/bump.py` (shim) | removed; use `pv01_pricer.bump` |
-| `tests/jax_port/test_phaseN_*.py` | named by subject; see `pv01/README.md` |
+| `tests/jax_port/test_phaseN_*.py` | named by subject; see `jax_pv01/README.md` |
 | `docs/refactor-plan.md`, `dv01/python/prompts/` | `notes/` |
 | `docs/assets/dv01_scaling.png` | `docs/assets/pv01_scaling.png` |
 

@@ -1,7 +1,7 @@
 # Corrections to the NumPy reference
 
 Two rounds of fixes to the NumPy port (`pv01_market`, `pv01_pricer`), with their effect on
-the numbers. The current goldens in `pv01/tests/golden/` are from after both.
+the numbers. The current goldens in `jax_pv01/tests/golden/` are from after both.
 
 ## Phase 0 corrections
 

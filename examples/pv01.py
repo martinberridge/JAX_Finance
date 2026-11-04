@@ -6,11 +6,11 @@ For each of three curve interpolators (linear, double quadratic, natural
 cubic spline) it calibrates the GBP OIS discount and LIBOR 6M forward curves
 from Strata's CalibrationInterpolationExample configuration, prices an 8y
 swap, and takes the PV01 to every market quote in one reverse-mode pass
-through the calibration. The kernel is `pv01_jax` in pv01/ (see
+through the calibration. The kernel is `pv01_jax` in jax_pv01/ (see
 docs/pv01_jax.md).
 
-Setup: `pip install -e pv01` first. The example CSVs are read from
-the pv01 source tree, so the install must be editable.
+Setup: `pip install -e jax_pv01` first. The example CSVs are read from
+the jax_pv01 source tree, so the install must be editable.
 """
 
 from time import perf_counter
@@ -23,7 +23,7 @@ from pv01_jax.workflow import price_and_risk
 def main() -> None:
     print("Market-quote PV01 of an 8y GBP swap, by AD through curve calibration")
     print("The first run of each interpolator includes JIT compilation (2-20s; see")
-    print("pv01/benchmarks/results/real_config.md), so it can pause before printing.")
+    print("jax_pv01/benchmarks/results/real_config.md), so it can pause before printing.")
 
     for suffix in SETTINGS_SUFFIXES:
         config, market_data, swap = load_example_inputs(suffix)

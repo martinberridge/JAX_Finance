@@ -1,4 +1,4 @@
-# pv01
+# jax_pv01
 
 Swap PV and market-quote PV01 by automatic differentiation through curve calibration. The
 kernel is `pv01_jax`. A NumPy port of Strata's `CalibrationInterpolationExample`, with

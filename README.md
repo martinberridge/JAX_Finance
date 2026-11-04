@@ -13,16 +13,16 @@ automatic differentiation instead of by hand or by bumping. It covers three prob
 
 ```
 ├── jax_finance/   Black-76 and SABR kernels; FX market-data helpers in jax_finance.fx
-├── pv01/          Swap PV01: the pv01_jax kernel, its NumPy reference, data, tests, benchmarks
+├── jax_pv01/      Swap PV01: the pv01_jax kernel, its NumPy reference, data, tests, benchmarks
 ├── examples/      Runnable demos: black.py, sabr.py, pv01.py
 ├── tests/         Tests for jax_finance
 ├── docs/          Source of the GitHub Pages blog, plus the PV01 write-up
 └── notes/         Working history: refactor plan and build prompts. Not needed for review.
 ```
 
-`jax_finance` and `pv01` install separately, each with its own `pyproject.toml`, because
-`pv01` carries a Strata-style input layer that the Black and SABR code doesn't need.
-[`pv01/README.md`](pv01/README.md) describes its packages and tests.
+`jax_finance` and `jax_pv01` install separately, each with its own `pyproject.toml`, because
+`jax_pv01` carries a Strata-style input layer that the Black and SABR code doesn't need.
+[`jax_pv01/README.md`](jax_pv01/README.md) describes its packages and tests.
 
 ## Reviewing this code
 
@@ -33,11 +33,11 @@ A suggested order, smallest first:
 2. **[`jax_finance/sabr.py`](jax_finance/sabr.py)** with
    [`tests/test_sabr.py`](tests/test_sabr.py) and
    [`tests/test_regression.py`](tests/test_regression.py).
-3. **[`pv01/pv01_jax/risk.py`](pv01/pv01_jax/risk.py)** and
-   [`calibrate.py`](pv01/pv01_jax/calibrate.py): AD through the calibration, with
-   [`test_implicit_derivatives`](pv01/tests/jax_port/test_implicit_derivatives.py) and
-   [`test_bump`](pv01/tests/jax_port/test_bump.py).
-4. **[`pv01/benchmarks/`](pv01/benchmarks/)**: how the numbers below were measured.
+3. **[`jax_pv01/pv01_jax/risk.py`](jax_pv01/pv01_jax/risk.py)** and
+   [`calibrate.py`](jax_pv01/pv01_jax/calibrate.py): AD through the calibration, with
+   [`test_implicit_derivatives`](jax_pv01/tests/jax_port/test_implicit_derivatives.py) and
+   [`test_bump`](jax_pv01/tests/jax_port/test_bump.py).
+4. **[`jax_pv01/benchmarks/`](jax_pv01/benchmarks/)**: how the numbers below were measured.
 
 What the tests compare against:
 
@@ -75,7 +75,7 @@ $$V = e^{-rT}\left[\omega F N(\omega d_1) - \omega K N(\omega d_2)\right], \qqua
 with $z/x(z)$ replaced by its series near the money and a "double where", so values and
 gradients stay finite at $K = F$. The formula is in the module docstring.
 
-**PV01 through calibration** ([`pv01/pv01_jax`](pv01/pv01_jax)). The
+**PV01 through calibration** ([`jax_pv01/pv01_jax`](jax_pv01/pv01_jax)). The
 curves' zero rates $z$ are calibrated so that each instrument's par rate matches its
 quote: $r(z, q) = \mathrm{par}(z) - q = 0$, solved by Newton. The PV01 to the quotes is
 
@@ -84,7 +84,7 @@ $$\frac{\partial\,\mathrm{PV}}{\partial q} = \frac{\partial\,\mathrm{PV}}{\parti
 `lax.custom_root` applies this implicit-function rule, so reverse mode never
 differentiates through the Newton iterations: it costs one transposed solve with the
 Jacobian Newton already uses. The minimal path is two functions in
-[`pv01_jax/risk.py`](pv01/pv01_jax/risk.py):
+[`pv01_jax/risk.py`](jax_pv01/pv01_jax/risk.py):
 
 ```python
 from pv01_jax.risk import market_quote_pv01, pv_from_quotes
@@ -122,18 +122,18 @@ The NumPy row is legacy context: a hand-written, uncompiled NumPy port of the St
 pipeline, so its gap mixes method and implementation. It isn't the comparison the chart
 makes. Timings are medians of 20 runs after compilation, on CPU (JAX 0.10.0, WSL2), and
 vary between runs. The full tables are in
-[`real_config.md`](pv01/benchmarks/results/real_config.md) and
-[`scaling.md`](pv01/benchmarks/results/scaling.md).
+[`real_config.md`](jax_pv01/benchmarks/results/real_config.md) and
+[`scaling.md`](jax_pv01/benchmarks/results/scaling.md).
 
 ## Roadmap
 
 | # | Post | Status | Code |
 |---|---|---|---|
 | 1 | [Getting the Greeks from autodiff: why options look like neural networks](docs/_posts/2026-09-10-Get-The-Greeks-Using_Autodiff.md) | Published 2026-09-10 | Concepts behind [`jax_finance/black.py`](jax_finance/black.py) |
-| 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](pv01/pv01_jax/risk.py) |
+| 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](jax_pv01/pv01_jax/risk.py) |
 | 3 | Getting the Greeks using JAX: implementation | Draft | [`jax_finance/black.py`](jax_finance/black.py) |
 | 4 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
-| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`pv01/pv01_jax`](pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
+| 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`jax_pv01/pv01_jax`](jax_pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
 
 ## Quickstart
 
@@ -141,20 +141,20 @@ vary between runs. The full tables are in
 python3 -m venv jax_env
 source jax_env/bin/activate
 pip install -e ".[fx,dev]"           # jax_finance, the FX helpers (QuantLib, SciPy, Polars), pytest
-pip install -e "pv01[bench]"         # pv01_jax and the Strata-port layers, matplotlib
+pip install -e "jax_pv01[bench]"     # pv01_jax and the Strata-port layers, matplotlib
 
 pytest                               # root suite: Black, SABR, FX and regression tests (about two minutes)
-(cd pv01 && python -m unittest discover -s tests -t .)
+(cd jax_pv01 && python -m unittest discover -s tests -t .)
 python examples/pv01.py              # PV and PV01 table for each interpolator
 python examples/black.py             # Black-76 price and Greeks
 python examples/sabr.py              # SABR calibration: synthetic smiles, then EURUSD
-(cd pv01 && python -m benchmarks.real_config)
-(cd pv01 && python -m benchmarks.scaling)
+(cd jax_pv01 && python -m benchmarks.real_config)
+(cd jax_pv01 && python -m benchmarks.scaling)
 ```
 
-- The pv01 package must be an editable install: its example CSVs are read from the
+- The jax_pv01 package must be an editable install: its example CSVs are read from the
   source tree.
-- `RUN_SLOW=1` adds the legacy bump-and-recalibrate comparisons to the pv01 suite, which
+- `RUN_SLOW=1` adds the legacy bump-and-recalibrate comparisons to the jax_pv01 suite, which
   then takes about an hour. `benchmarks.real_config --slow` adds the slow legacy NCS bump.
 - Importing `jax_finance` or `pv01_jax` turns on 64-bit floats (`jax_enable_x64`), which
   is a process-wide JAX setting.

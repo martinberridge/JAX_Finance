@@ -6,7 +6,7 @@ On the 19-quote GBP config for each interpolator: AD (reverse mode and
 ``bump_pv01`` (NCS only with ``--slow``). JAX rows report compile time
 separately and the median of 20 runs after warm-up.
 
-Run from pv01: ``python -m benchmarks.real_config [--slow]``. Writes
+Run from jax_pv01: ``python -m benchmarks.real_config [--slow]``. Writes
 ``benchmarks/results/real_config.md``.
 """
 
