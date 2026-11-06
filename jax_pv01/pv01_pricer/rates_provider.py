@@ -1,3 +1,11 @@
+# Derived from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   ImmutableRatesProvider, ZeroRateDiscountFactors
+# Copyright (C) 2014 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: translated from Java to Python and reduced to GBP
+#   discount and LIBOR curves.
+
 """Multi-curve rates provider."""
 
 from dataclasses import dataclass, field

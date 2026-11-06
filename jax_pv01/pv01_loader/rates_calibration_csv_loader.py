@@ -1,3 +1,9 @@
+# Derived in part from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   RatesCalibrationCsvLoader
+# Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: reimplemented in Python using pandas.
+
 """RatesCalibrationCsvLoader — load curve group, settings, and nodes."""
 
 from pathlib import Path

@@ -1,0 +1,8 @@
+JAX_Finance
+  Copyright 2026 Martin Berridge
+
+  jax_pv01 contains code ported from OpenGamma Strata
+  (https://github.com/OpenGamma/Strata), and its data/ directory contains
+  example curve configuration and market quotes from Strata.
+  Copyright (C) 2009 - present by OpenGamma Inc. and the OpenGamma group of companies.
+  Licensed under the Apache License, Version 2.0.

@@ -1,3 +1,10 @@
+# Derived from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   LinearCurveInterpolatorTest
+# Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: test data translated from Java to Python; tests
+#   adapted to this project.
+
 """Interpolator tests against Strata test vectors."""
 
 import unittest

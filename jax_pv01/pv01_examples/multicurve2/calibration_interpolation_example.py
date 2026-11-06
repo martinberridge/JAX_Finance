@@ -1,3 +1,10 @@
+# Derived from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   CalibrationInterpolationExample
+# Copyright (C) 2017 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: translated from Java to Python to use this project's
+#   modules.
+
 """
 Calibrates one set of curves with several interpolators, computes bucketed PV01 and exports CSV.
 

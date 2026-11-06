@@ -1,3 +1,10 @@
+# Derived from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   ExportUtils
+# Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: translated from Java to Python; added read_pv and
+#   read_mqs.
+
 """ExportUtils — CSV export matching Strata example format."""
 
 from pathlib import Path

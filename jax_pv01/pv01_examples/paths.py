@@ -1,3 +1,10 @@
+# Derived in part from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   CalibrationInterpolationExample
+# Copyright (C) 2017 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: example configuration name and file suffixes
+#   translated to Python.
+
 """Paths within the jax_pv01 project."""
 
 from pathlib import Path

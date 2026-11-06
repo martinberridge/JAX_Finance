@@ -1,3 +1,10 @@
+# Derived in part from OpenGamma Strata (https://github.com/OpenGamma/Strata):
+#   RatesCurveCalibrator
+# Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+# Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE.txt.
+# Changed by Martin Berridge, 2026: reimplemented in Python with Newton steps and a
+#   finite-difference Jacobian.
+
 """RatesCurveCalibrator — Newton root-finding on curve zero rates."""
 
 import logging
