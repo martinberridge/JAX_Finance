@@ -127,13 +127,16 @@ vary between runs. The full tables are in
 
 ## Roadmap
 
-| # | Post | Status | Code |
-|---|---|---|---|
-| 1 | [Getting the Greeks from autodiff: why options look like neural networks](docs/_posts/2026-09-10-Get-The-Greeks-Using_Autodiff.md) | Published 2026-09-10 | Concepts behind [`jax_finance/black.py`](jax_finance/black.py) |
+| # | Post/TODO
+ |---|---|---|---|
+| 1 | [Getting the Greeks from autodiff: why options look like neural networks](docs/_posts/2026-07-11-Get-The-Greeks-Using_Autodiff.md) | Published 2026-07-11 | Concepts behind [`jax_finance/black.py`](jax_finance/black.py) |
 | 2 | Inside the autodiff engine: how ML libraries compute Greeks without ever building a Jacobian | Draft (dated 2026-09-29) | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](jax_pv01/pv01_jax/risk.py) |
 | 3 | Getting the Greeks using JAX: implementation | Draft | [`jax_finance/black.py`](jax_finance/black.py) |
 | 4 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
 | 5 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`jax_pv01/pv01_jax`](jax_pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
+| 6 | Scale and Serve JAX Models on NVIDIA GPUs | - |  -|
+| 7 | Add services layer for REST/GQL/MCP  | - |  -|
+| 8 | Setup for deployment to clout  | - |  -|
 
 ## Quickstart
 
