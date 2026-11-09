@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Getting the Greeks from autodiff: why options look like neural networks"
-date: 2026-09-10
+date: 2026-11-07
 categories: [quant-finance, autodiff]
 series: autodiff-for-greeks
 part: 1
@@ -10,7 +10,7 @@ If you've built software to price options, you've computed Greeks one of two way
 
 Bump-and-reprice and hand-differentiated analytics have been standard practice for decades.
 
-But there's a third way to get a derivative, and it happens to be the same machinery that trains every neural network in production today: automatic differentiation. Researchers like Antoine Savine and Marc Henrard have made the case that, once you look closely, an option pricing formula turns out to be structurally the same kind of computation as a neural network. Same graph shape, same gradient machinery, same tricks for making it fast. This post walks through why.
+But there's a third way to get a derivative, and it happens to be the same machinery that trains every neural network in production today: automatic differentiation. Researchers like Antoine Savine and Marc Henrard (see Henrard 2017 and Savine 2018) have made the case that, once you look closely, an option pricing formula turns out to be structurally the same kind of computation as a neural network. Same graph shape, same gradient machinery, same tricks for making it fast. This post walks through why.
 
 ## Why borrow from machine learning at all?
 
@@ -53,7 +53,7 @@ Backward mode also has a natural local/global split. At each individual layer or
 
 ## A short detour: what is a Jacobian, really?
 
-Both modes are ultimately computing pieces of the same object: the Jacobian, the matrix of all partial derivatives of a set of outputs with respect to a set of inputs. It's worth building intuition for what that matrix actually represents, because it clarifies why forward and backward mode are two different ways of extracting information from the same structure.
+Both forward- and backward modes are ultimately computing pieces of the same object: the Jacobian, the matrix of all partial derivatives of a set of outputs with respect to a set of inputs. It's worth building intuition for what that matrix actually represents, because it clarifies why forward and backward mode are two different ways of extracting information from the same structure.
 
 A useful analogy comes from computer graphics. An ordinary transformation matrix — the kind used to move or resize a shape — acts globally: every point in the image is moved or scaled by exactly the same rule. A Jacobian is a *local* version of that idea. Instead of one transformation for the whole space, it describes how a nonlinear function behaves in the immediate neighborhood of one particular point — warping and distorting space differently depending on where you are. Zoom into any single point on a curved, nonlinear function and, locally, it looks approximately linear; the Jacobian is that local linear approximation.
 
@@ -203,3 +203,10 @@ The next post takes a closer look at these implementations and explores JAX in p
 ## Takeaway
 
 Forward mode wins when you have few inputs and many outputs — sweeping one interest rate across a whole portfolio. Backward mode wins when you have many inputs and one output — and pricing a single option from a handful of market and contract parameters down to one premium is squarely that shape. Once you see the pricing formula as a compute graph instead of a formula on a page, reaching for autodiff isn't borrowing a trick from machine learning — it's just recognizing that you already had the right kind of graph for it.
+
+## References
+
+Henrard, Marc (2017) *Algorithmic Differentiation in Finance Explained* 20217 Palgrave Macmillan Cham
+
+Savine, Antoine (2019) *Lecture Notes Computational Finance And Machine Learning in Finance (Copenhagen University and Kings College London)*    https://antoinesavine.com/lectures-by-antoine-savine/
+
