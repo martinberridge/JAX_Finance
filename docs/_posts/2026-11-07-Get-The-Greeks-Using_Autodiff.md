@@ -206,7 +206,7 @@ Forward mode wins when you have few inputs and many outputs — sweeping one int
 
 ## References
 
-Henrard, Marc (2017) *Algorithmic Differentiation in Finance Explained* 20217 Palgrave Macmillan Cham
+Henrard, Marc (2017) *Algorithmic Differentiation in Finance Explained* Springer
 
 Savine, Antoine (2019) *Lecture Notes Computational Finance And Machine Learning in Finance (Copenhagen University and Kings College London)*    https://antoinesavine.com/lectures-by-antoine-savine/
 
