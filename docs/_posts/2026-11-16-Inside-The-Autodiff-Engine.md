@@ -6,9 +6,9 @@ categories: [quant-finance, autodiff]
 series: autodiff-for-greeks
 part: 2
 ---
-In [Part 1]({% post_url 2026-11-07-Get-The-Greeks-Using_Autodiff %}) we saw that the Greeks can be calculated with reverse-mode autodiff, the same machinery that computes gradients and backpropagates errors when training an MLP. We also saw when each mode fits: reverse mode for a function with many inputs and few outputs, and forward mode for one with few inputs and many outputs. An option price, with five inputs and one output, is the textbook case for reverse mode.
+In [Part 1]({{ site.baseurl }}{% post_url 2026-11-07-Get-The-Greeks-Using_Autodiff %}) we saw that the Greeks can be calculated with reverse-mode autodiff, the same machinery that computes gradients and backpropagates errors when training an MLP. We also saw when each mode fits: reverse mode for a function with many inputs and few outputs, and forward mode for one with few inputs and many outputs. An option price, with five inputs and one output, is the textbook case for reverse mode.
 
-Part 1 wrote the Greeks as a scalar, 1, times a global Jacobian, and built that Jacobian as the product of five local Jacobians, one per layer of the Black-76 model represented as an MLP. In JAX, all of that takes a few lines of code.
+[Part 1]({{ site.baseurl }}{% post_url 2026-11-07-Get-The-Greeks-Using_Autodiff %}) wrote the Greeks as a scalar, 1, times a global Jacobian, and built that Jacobian as the product of five local Jacobians, one per layer of the Black-76 model represented as an MLP. In JAX, all of that takes a few lines of code.
 
 First, the Black-76 model in Python:
 
@@ -48,7 +48,7 @@ theta = -dc_dT
 
 That's it: the price and all five first-order Greeks from one call.
 
-Which brings us to the promise at the end of Part 1. Libraries like JAX and PyTorch don't actually build those five matrices. So what do they store and compute instead?
+Which brings us to the promise at the end of [Part 1]({{ site.baseurl }}{% post_url 2026-11-07-Get-The-Greeks-Using_Autodiff %}). Libraries like JAX and PyTorch don't actually build those five matrices. So what do they store and compute instead?
 
 The short answer: they never ask for a Jacobian at all. They only ask what a Jacobian *does* to a vector. Every autodiff library is built around two operations: the **Jacobian-vector product (JVP)**, used in forward mode, and the **vector-Jacobian product (VJP)**, used in reverse mode. Everything else is plumbing to record your program and run those two operations through it efficiently.
 
