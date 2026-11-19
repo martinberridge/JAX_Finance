@@ -219,17 +219,17 @@ Before we can transpose, we need a linear map. JAX gets one by running the JVP r
 
 Each step's nonlinear work (log, exp, erf) is done once, leaving that step's local Jacobian as fixed numbers: the residuals. What's left is a program that only scales and adds tangents, computing $$J \cdot \dot{x}$$ for any tangent $$\dot{x}$$. In other words, we've linearised the pushforwards.
 
-Let's look at concrete scalar step like $y = x^2$ (specifically, the $\sigma^2$ step inside Black-76) , the JVP rule is $\dot{y} = 2x\,\dot{x}$. 
+Let's look at concrete scalar step like $$y = x^2$$ (specifically, the $$\sigma^2$$ step inside Black-76) , the JVP rule is $$\dot{y} = 2x\,\dot{x}$$. 
 
-Evaluated at $x = 3$, the primal $y = 9$ and the local derivative $2x = 6$ are computed once and fixed, leaving the linear map $\dot{y} = 6\,\dot{x}$ with `6` saved as the residual.
+Evaluated at $$x = 3$$, the primal $$y = 9$$ and the local derivative $$2x = 6$$ are computed once and fixed, leaving the linear map $$\dot{y} = 6\,\dot{x}$$ with `6` saved as the residual.
 
 #### Transposing: from pushforwards to pullbacks
 
 A linear program can be run backwards mechanically. A step that multiplied a tangent by a constant on the way forward ($$\dot{z} = c\,\dot{x}$$) multiplies the cotangent by the same constant on the way back ($$\bar{x} \mathrel{+}= c\,\bar{z}$$): same number, opposite direction. Every fan-out becomes an addition, and every addition becomes a copy.
 
-Continuing our $y = x^2$ example—the exact operation that computes $\sigma^2$ inside Black-76—the linearised step $\dot{y} = 6\,\dot{x}$ is a tiny $1 \times 1$ local Jacobian $J^{(i)} = [6]$, representing the pushforward $f_{i*}$. Transposing it gives $J^{(i)\top} = [6]$, the pullback $f_i^{*}$, which sends the sensitivity backward via $\bar{x} \mathrel{+}= 6\,\bar{y}$.
+Continuing our $$y = x^2$$ example—the exact operation that computes $$\sigma^2$$ inside Black-76—the linearised step $$\dot{y} = 6\,\dot{x}$$ is a tiny $$1 \times 1$$ local Jacobian $$J^{(i)} = [6]$$, representing the pushforward $$f_{i*}$$. Transposing it gives $$J^{(i)\top} = [6]$$, the pullback $$f_i^{*}$$, which sends the sensitivity backward via $$\bar{x} \mathrel{+}= 6\,\bar{y}$$.
 
-Our full Greeks calculation is simply a chain of these steps: five local Jacobians multiplied together, $J^{(5)} J^{(4)} J^{(3)} J^{(2)} J^{(1)}$, one per layer of the model. Transposing each step individually and running them from last to first computes the transpose of the entire chain, because transposing a product reverses its order:
+Our full Greeks calculation is simply a chain of these steps: five local Jacobians multiplied together, $$J^{(5)} J^{(4)} J^{(3)} J^{(2)} J^{(1)}$$, one per layer of the model. Transposing each step individually and running them from last to first computes the transpose of the entire chain, because transposing a product reverses its order:
 
 $$\big(J^{(5)} J^{(4)} J^{(3)} J^{(2)} J^{(1)}\big)^{\top} = J^{(1)\top} J^{(2)\top} J^{(3)\top} J^{(4)\top} J^{(5)\top}$$
 
