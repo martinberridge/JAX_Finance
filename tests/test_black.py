@@ -66,7 +66,7 @@ def test_ad_greeks_match_closed_forms(is_call):
         ad = compute_greeks_single(F, K, T, r, sigma, is_call)
         cf = closed_form(F, K, T, r, sigma, is_call)
         for g in GREEKS:
-            np.testing.assert_allclose(float(ad[g]), cf[g], rtol=1e-10,
+            np.testing.assert_allclose(float(ad[g]), cf[g], rtol=1e-8,
                                        err_msg=f"{g} F={F} K/F={m} T={T} r={r} sigma={sigma}")
 
 

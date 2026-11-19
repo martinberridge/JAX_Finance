@@ -27,28 +27,22 @@ from jax import grad, jit, value_and_grad, vmap
 from jax.scipy.stats import norm
 
 
+
+
 def black_price(F, K, T, r_d, sigma, is_call=True):
-    """
-    Black-76 price of a call or put.
-
-    Args:
-        F: Forward rate
-        K: Strike
-        T: Time to maturity (years)
-        r_d: Domestic (discounting) rate, continuously compounded
-        sigma: Implied volatility
-        is_call: True for a call, False for a put
-
-    Returns:
-        Option price
-    """
-    w = jnp.where(is_call, 1.0, -1.0)
     sqrt_T = jnp.sqrt(T)
-    d1 = (jnp.log(F / K) + 0.5 * sigma**2 * T) / (sigma * sqrt_T)
+    d1 = (jnp.log(F / K) + 0.5 * (sigma ** 2) * T) / (sigma * sqrt_T)
     d2 = d1 - sigma * sqrt_T
     df = jnp.exp(-r_d * T)
-    return df * (w * F * norm.cdf(w * d1) - w * K * norm.cdf(w * d2))
 
+    n_d1 = norm.cdf(d1)
+    n_d2 = norm.cdf(d2)
+
+    call_price = df * (F * n_d1 - K * n_d2)
+    # N(-d) directly, not 1 - N(d): deep OTM, 1 - N(d) cancels to zero in float64
+    put_price = df * (K * norm.cdf(-d2) - F * norm.cdf(-d1))
+
+    return jnp.where(is_call, call_price, put_price)
 
 def compute_greeks_single(F, K, T, r_d, sigma, is_call=True):
     """
