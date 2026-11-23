@@ -1,8 +1,10 @@
 """
-Benchmark: price and Greeks for a batch of Black-76 options, four ways.
+Benchmark: price and Greeks for a batch of Black-76 options, five ways.
 
     1. Price only                      jit(black_price)
     2. JAX AD, jitted                  batch_price_and_greeks (vmap + value_and_grad + grad(grad))
+    2b. JAX AD, jitted, static branch  as 2, but black_price_static picks call/put with a Python
+                                       `if`, so the put branch is never traced (Part 4)
     3. Bump-and-reprice, central diffs jit of 9 repricings (base + 2 bumps each for F, sigma, T, r)
     4. JAX AD, not jitted              the same vmap'd AD function, run op by op
 
@@ -24,6 +26,7 @@ jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp
 from jax import jit, vmap
+from jax.scipy.stats import norm
 
 from jax_finance.black import black_price, batch_price_and_greeks, compute_greeks_single
 
@@ -58,6 +61,39 @@ def price_only(F, K, T, r_d, sigma):
 
 def ad_jitted(F, K, T, r_d, sigma):
     return batch_price_and_greeks(F, K, T, r_d, sigma, 'call')
+
+
+def black_price_static(F, K, T, r_d, sigma, is_call=True):
+    """black_price with the call/put choice made in Python (Part 4).
+
+    `is_call` must be a plain Python bool: only one branch is traced, so the
+    put's N(-d1) and N(-d2) never appear in a call's program.
+    """
+    sqrt_T = jnp.sqrt(T)
+    d1 = (jnp.log(F / K) + 0.5 * (sigma ** 2) * T) / (sigma * sqrt_T)
+    d2 = d1 - sigma * sqrt_T
+    df = jnp.exp(-r_d * T)
+    if is_call:
+        return df * (F * norm.cdf(d1) - K * norm.cdf(d2))
+    return df * (K * norm.cdf(-d2) - F * norm.cdf(-d1))
+
+
+def greeks_single_static(F, K, T, r_d, sigma, is_call=True):
+    """Same outputs and scaling as compute_greeks_single, on black_price_static."""
+    p = lambda F_, T_, r_, s_: black_price_static(F_, K, T_, r_, s_, is_call)
+    price, (dF, dT, dr, ds) = jax.value_and_grad(p, argnums=(0, 1, 2, 3))(F, T, r_d, sigma)
+    gamma = jax.grad(jax.grad(p, argnums=0), argnums=0)(F, T, r_d, sigma)
+    return {
+        'price': price,
+        'delta': dF,
+        'gamma': gamma,
+        'vega': ds * 0.01,
+        'theta': -dT / 365.0,
+        'rho': dr * 0.01,
+    }
+
+
+ad_jitted_static = jit(vmap(lambda f, k, t, r, s: greeks_single_static(f, k, t, r, s, IS_CALL)))
 
 
 @jit
@@ -115,6 +151,7 @@ def main(n):
     methods = [
         ("Price only", "price", price_only, RUNS),
         ("JAX AD, jitted", "price, Δ, Γ, vega, θ, ρ", ad_jitted, RUNS),
+        ("JAX AD, jitted, static branch", "same", ad_jitted_static, RUNS),
         ("Bump-and-reprice, central differences", "same", bump_and_reprice, RUNS),
         ("JAX AD, *not* jitted", "same", ad_not_jitted, RUNS_SLOW),
     ]
@@ -132,8 +169,22 @@ def main(n):
         t = times[name]
         print(f"| {name} | {what} | {t * 1e3:.1f} ms | {t / base:.1f}× |")
 
-    # Accuracy of bumping against AD
+    # The static-branch AD must agree with the jnp.where version
     ad = ad_jitted(*args)
+    st = ad_jitted_static(*args)
+    print("\nMax absolute difference, static-branch AD vs AD:")
+    for key in ('price', 'delta', 'gamma', 'vega', 'theta', 'rho'):
+        print(f"  {key:<6} {float(jnp.max(jnp.abs(st[key] - ad[key]))):.1e}")
+
+    # XLA expands erf into polynomials, so count exponentials in the compiled
+    # program instead: each N(x) evaluation brings its own e^(-x^2) terms, so
+    # fewer exponentials means fewer normal-CDF evaluations were kept.
+    def n_exp(fn):
+        return jit(fn).lower(*args).compile().as_text().count("exponential(")
+    print(f"\nexponentials in compiled program: price {n_exp(price_only)}, "
+          f"AD {n_exp(ad_jitted)}, static-branch AD {n_exp(ad_jitted_static)}")
+
+    # Accuracy of bumping against AD
     fd = bump_and_reprice(*args)
     print("\nMax relative difference, bump-and-reprice vs AD:")
     for key in ('price', 'delta', 'gamma', 'vega', 'theta', 'rho'):
