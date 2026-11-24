@@ -18,3 +18,8 @@ target/
 
 # Local Strata checkout
 strata
+
+# Jekyll: gems installed by Bundler, its local config, and the built site
+docs/vendor/bundle/
+docs/.bundle/
+docs/_site/
