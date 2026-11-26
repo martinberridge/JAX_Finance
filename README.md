@@ -5,7 +5,8 @@ blog series: derivatives pricing written as pure JAX functions, with the risk ta
 automatic differentiation instead of by hand or by bumping. It covers three problems:
 
 - **Black-76 options:** price and all Greeks from one reverse-mode pass.
-- **SABR:** Hagan implied vols and an Adam calibration compiled as one `lax.scan`.
+- **SABR:** Hagan implied vols, an Adam and Newton calibration compiled as one function, and
+  FX quote risk taken through it by the implicit function theorem.
 - **Swap PV01 through curve calibration:** sensitivity to every market quote, with the
   derivative taken through the Newton calibration by the implicit function theorem.
 
@@ -46,6 +47,7 @@ What the tests compare against:
 | Black-76 Greeks | Closed forms written with `math.erf` |
 | SABR vols | QuantLib `sabrVolatility`, captured in [`tests/golden/`](tests/golden/) |
 | SABR calibration | Recovery of known parameters; `scan` against a ported Python loop |
+| SABR quote risk | Bump-and-recalibrate on the converged fit |
 | FX helpers | Delta and strike round trips; quoted forwards against the rate differential |
 | PV01 | Hand-coded sensitivities, bump-and-recalibrate, finite differences |
 
@@ -61,7 +63,7 @@ Each problem has the same three layers.
 |---|---|---|
 | **Kernel** | A pure function from inputs to a price, with no derivative code in it | `black_price`, `sabr_implied_vol`, `pv_swap`, `residuals` |
 | **Transform** | JAX turning that function into its derivative, batch or compiled form | `jax.grad`, `jax.jvp`, `jax.vmap`, `jax.jit`, `lax.scan`, `lax.custom_root` |
-| **Risk** | The Greeks or PV01 in market units | `compute_greeks_single`, `calibrate_sabr`, `market_quote_pv01`, `parallel_pv01` |
+| **Risk** | The Greeks or PV01 in market units | `compute_greeks_single`, `calibrate_sabr`, `market_quote_vega`, `market_quote_pv01`, `parallel_pv01` |
 
 **Black-76** ([`jax_finance/black.py`](jax_finance/black.py)). With $\omega = +1$ for a
 call and $-1$ for a put,
@@ -133,8 +135,9 @@ vary between runs. The full tables are in
 | 2 | [Inside the autodiff engine: pullbacks, pushforwards and the backward sweep](docs/_posts/2026-11-16-Inside-The-Autodiff-Engine.md) | Published 2026-11-16 | JVP and VJP: `compute_greeks_single` in [`jax_finance/black.py`](jax_finance/black.py), `jax.jvp` and `jax.grad` in [`pv01_jax/risk.py`](jax_pv01/pv01_jax/risk.py) |
 | 3 | [Autodiff Greeks in JAX: reading the gradient program and compiling it](docs/_posts/2026-11-19-Autodiff-Greeks-In-JAX.md) | Published 2026-11-19 | [`jax_finance/black.py`](jax_finance/black.py), benchmark [`examples/black_benchmark.py`](examples/black_benchmark.py) |
 | 4 | [Autodiff Greeks in JAX: composing transformations, and where it goes wrong](docs/_posts/2026-11-23-Autodiff-Greeks-In-JAX-Composing.md) | Published 2026-11-23 | `hessian`, `jacfwd` and `vmap` over [`jax_finance/black.py`](jax_finance/black.py) |
-| 5 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
-| 6 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`jax_pv01/pv01_jax`](jax_pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
+| 5 | [What SABR Is For, and Why Automatic Differentiation Suits It](docs/_posts/2026-11-26-SABR-Autodiff.md) | Published 2026-11-26 | Concepts behind [`jax_finance/sabr.py`](jax_finance/sabr.py) |
+| 6 | SABR calibration with JAX | Draft | [`jax_finance/sabr.py`](jax_finance/sabr.py) |
+| 7 | PV01 by AD through curve calibration | Write-up in [`docs/pv01_jax.md`](docs/pv01_jax.md) | [`jax_pv01/pv01_jax`](jax_pv01/pv01_jax), demo [`examples/pv01.py`](examples/pv01.py) |
 | 8 | Scale and Serve JAX Models on NVIDIA GPUs | - | - |
 | 9 | Add services layer for REST/GQL/MCP | - | - |
 | 10 | Setup for deployment to cloud | - | - |
@@ -147,7 +150,7 @@ source jax_env/bin/activate
 pip install -e ".[fx,dev]"           # jax_finance, the FX helpers (QuantLib, SciPy, Polars), pytest
 pip install -e "jax_pv01[bench]"     # pv01_jax and the Strata-port layers, matplotlib
 
-pytest                               # root suite: Black, SABR, FX and regression tests (about two minutes)
+pytest                               # root suite: Black, SABR, FX and regression tests (about four minutes)
 (cd jax_pv01 && python -m unittest discover -s tests -t .)
 python examples/pv01.py              # PV and PV01 table for each interpolator
 python examples/black.py             # Black-76 price and Greeks
