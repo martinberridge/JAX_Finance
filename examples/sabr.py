@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
     # FX Options versions using EURUSD market data.
     df = get_fx_market_data_for_calibration(atm, rrs, bfs, FWD_Points, spot, rates)
-    results = calibrate_sabr_surface_from_df(df, beta=0.5, verbose=True)
+    results = calibrate_sabr_surface_from_df(df, beta=1.0, verbose=True)
     for r in results:
         print(
             f"{r['tenor']}: alpha={r['alpha']:.4f} rho={r['rho']:.4f} "

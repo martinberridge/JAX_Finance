@@ -69,11 +69,11 @@ def test_surface_strikes_ordered(market_df):
 
 
 def test_eurusd_sabr_calibration_fits_quotes(market_df):
-    # Beyond overnight, SABR fits the five quoted vols to within 0.05 vol points.
+    # SABR fits the five quoted vols of every tenor to within 0.05 vol points.
     vol_cols = ["atm", "25_delta_call", "25_delta_put", "10_delta_call", "10_delta_put"]
     rows = {r["tenor"]: r for r in market_df.iter_rows(named=True)}
-    for res in calibrate_sabr_surface_from_df(market_df, beta=0.5):
-        if res["tenor"] == "on":
-            continue
+    for res in calibrate_sabr_surface_from_df(market_df):
+        assert res["beta"] == 1.0
+        assert res["converged"], res["tenor"]
         quoted = np.array([rows[res["tenor"]][f"surface_{c}_vol"] for c in vol_cols])
         np.testing.assert_allclose(res["model_ivs"] * 100, quoted, atol=0.05, err_msg=res["tenor"])
