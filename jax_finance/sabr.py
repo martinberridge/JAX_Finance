@@ -25,9 +25,15 @@ factor of 4 too small (notes/refactor-plan.md, Step 0.5). It agrees with
 QuantLib's `sabrVolatility` to float64 precision.
 
 Calibration fits (alpha, rho, nu) per expiry with beta fixed, by Adam on a
-vega-weighted squared vol error. The Adam loop is a `jax.lax.scan`, so one
-calibration compiles to one function, and expiries with the same number of
-strikes are calibrated together under `vmap`.
+vega-weighted squared vol error, then a few guarded Newton steps on the same
+loss. Adam gets near the minimum but, with a constant learning rate, never
+settles on it; Newton converges to rounding error. Results carry a
+`converged` flag. The Adam loop is a `jax.lax.scan`, so one calibration
+compiles to one function, and expiries with the same number of strikes are
+calibrated together under `vmap`.
+
+Sensitivities to the market quotes, taken through the calibration, are in
+`jax_finance.sabr_risk`.
 """
 
 import math
@@ -37,11 +43,16 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import jit, lax, value_and_grad, vmap
+from jax.flatten_util import ravel_pytree
 from jax.nn import softplus
 
 # |z| below this uses the series for z/x(z). It balances the series'
 # O(z^3) truncation against cancellation in x(z), both about 1e-12 here.
 _Z_SERIES = 1e-4
+
+# A fit counts as converged when the next Newton step would move every
+# unconstrained parameter by less than this.
+_NEWTON_TOL = 1e-8
 
 
 # -----------------------------------------------------------------------------
@@ -75,11 +86,13 @@ def sabr_implied_vol(F, K, T, alpha, beta, rho, nu, eps=1e-12):
 
     F, K, T: arrays (broadcastable), strictly positive
     alpha > 0, nu > 0; beta in [0, 1]; rho in (-1, 1)
+
+    beta is not clipped: at beta = 0 and beta = 1, the usual choices, a clip
+    would sit on its own kink and JAX would return half the beta derivative.
     """
     F = jnp.clip(F, eps, None)
     K = jnp.clip(K, eps, None)
     T = jnp.clip(T, eps, None)
-    beta = jnp.clip(beta, 0.0, 1.0)
 
     one_m_beta = 1.0 - beta
     FK = F * K
@@ -132,6 +145,12 @@ def sabr_loss_for_points(raw, F, K, T, market_iv, beta_fixed=0.5, weights=None):
     return jnp.mean(err2), model_iv
 
 
+def vega_weights(F, K, T, market_iv):
+    """Black vega at each quote, scaled to mean 1: the calibration weights."""
+    weights = black_vega(F, K, T, market_iv)
+    return weights / jnp.maximum(jnp.mean(weights), 1e-12)
+
+
 # -----------------------------------------------------------------------------
 # Pure-JAX Adam
 # -----------------------------------------------------------------------------
@@ -154,19 +173,64 @@ def adam_update(params, grads, state, lr=1e-2, b1=0.9, b2=0.999, eps=1e-8):
 
 
 # -----------------------------------------------------------------------------
+# Newton polish - finishing an optimisation with a few Newton steps, 
+# once a cheaper first-order method like Adam has got close to the minimum
+# -----------------------------------------------------------------------------
+def newton_direction(loss, x):
+    """
+    Newton step for a scalar loss of a flat vector, using |eigenvalues| of the
+    Hessian so that it points downhill at saddles and maxima too. Returns the
+    step and the smallest (signed) eigenvalue.
+    """
+    eigvals, Q = jnp.linalg.eigh(jax.hessian(loss)(x))
+    scale = jnp.abs(eigvals)
+    scale = jnp.maximum(scale, 1e-12 * jnp.max(scale) + jnp.finfo(x.dtype).tiny)
+    return -Q @ ((Q.T @ jax.grad(loss)(x)) / scale), eigvals[0]
+
+
+def newton_polish(loss, x, steps):
+    """
+    `steps` guarded Newton steps: each has length at most 1, and is rejected
+    and retried at a quarter of the size if it raises the loss. The 1e-9
+    allows for rounding in the loss, whose residuals are differences of
+    nearly equal vols.
+    """
+    def step(carry, _):
+        x, val, damping = carry
+        direction, _ = newton_direction(loss, x)
+        direction = direction / jnp.maximum(jnp.linalg.norm(direction), 1.0)
+        x_new = x + damping * direction
+        val_new = loss(x_new)
+        accept = val_new <= val + 1e-9 * jnp.abs(val)
+        x = jnp.where(accept, x_new, x)
+        val = jnp.where(accept, val_new, val)
+        damping = jnp.where(accept, jnp.minimum(4.0 * damping, 1.0), damping / 4.0)
+        return (x, val, damping), None
+
+    (x, _, _), _ = lax.scan(step, (x, loss(x), jnp.ones((), x.dtype)), None, length=steps)
+    return x
+
+
+# -----------------------------------------------------------------------------
 # Calibration
 # -----------------------------------------------------------------------------
-@partial(jit, static_argnames=("steps", "vega_weight"))
-def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_weight=True):
+@partial(jit, static_argnames=("steps", "vega_weight", "newton_steps"))
+def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_weight=True,
+                   newton_steps=20):
     """
     Calibrate SABR (alpha, rho, nu) for one expiry with fixed beta.
 
-    Pure and jittable: the Adam loop is a `lax.scan` over `steps` updates.
+    Pure and jittable: the Adam loop is a `lax.scan` over `steps` updates,
+    followed by `newton_steps` of `newton_polish` (0 for Adam alone).
     F and T are scalars; Ks and market_ivs are arrays of the same length.
 
     Returns a dict of arrays: alpha, beta, rho, nu, model_ivs, final_loss,
-    and per-step histories loss_history (the loss before each update) and
-    alpha_history, rho_history, nu_history (the parameters after it).
+    raw (the unconstrained parameters), and
+
+    - converged: the fit is at a minimum, to rounding. newton_step is the
+      largest move the next Newton step would make in any raw parameter.
+    - per-step Adam histories: loss_history (the loss before each update) and
+      alpha_history, rho_history, nu_history (the parameters after it).
     """
     K = jnp.asarray(Ks)
     F_vec = jnp.full_like(K, F)
@@ -175,8 +239,7 @@ def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_wei
 
     weights = None
     if vega_weight:
-        weights = black_vega(F_vec, K, T_vec, mkt)
-        weights = weights / jnp.maximum(jnp.mean(weights), 1e-12)
+        weights = vega_weights(F_vec, K, T_vec, mkt)
 
     # Initialisation: median IV to guess alpha (scaled by F^(1-beta))
     init_alpha = jnp.median(mkt) * (F ** (1.0 - beta))
@@ -201,6 +264,13 @@ def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_wei
         step, (raw, adam_init(raw)), None, length=steps
     )
 
+    x, unravel = ravel_pytree(raw_params)
+    flat_loss = lambda v: loss_only(unravel(v))
+    x = newton_polish(flat_loss, x, newton_steps)
+    raw_params = unravel(x)
+    direction, min_curvature = newton_direction(flat_loss, x)
+    newton_step = jnp.max(jnp.abs(direction))
+
     final_loss, model_iv = sabr_loss_for_points(raw_params, F_vec, K, T_vec, mkt, beta, weights)
     alpha, beta_used, rho, nu = sabr_params_from_raw(raw_params, beta)
     return {
@@ -210,6 +280,9 @@ def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_wei
         "nu": nu,
         "model_ivs": model_iv,
         "final_loss": final_loss,
+        "raw": raw_params,
+        "newton_step": newton_step,
+        "converged": (newton_step < _NEWTON_TOL) & (min_curvature > 0.0),
         "loss_history": losses,
         "alpha_history": alphas,
         "rho_history": rhos,
@@ -217,11 +290,13 @@ def calibrate_sabr(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_wei
     }
 
 
-@partial(jit, static_argnames=("steps", "vega_weight"))
-def calibrate_sabr_batch(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_weight=True):
+@partial(jit, static_argnames=("steps", "vega_weight", "newton_steps"))
+def calibrate_sabr_batch(F, Ks, T, market_ivs, beta=0.5, lr=1e-2, steps=1500, vega_weight=True,
+                         newton_steps=20):
     """`calibrate_sabr` over a leading expiry axis: F, T of shape (n,), Ks, market_ivs of shape (n, m)."""
     return vmap(
-        lambda f, k, t, m: calibrate_sabr(f, k, t, m, beta, lr, steps=steps, vega_weight=vega_weight)
+        lambda f, k, t, m: calibrate_sabr(f, k, t, m, beta, lr, steps=steps, vega_weight=vega_weight,
+                                         newton_steps=newton_steps)
     )(F, Ks, T, market_ivs)
 
 
@@ -234,6 +309,9 @@ def _as_result(out, steps, verbose):
                       f"alpha={float(out['alpha_history'][i]):.4f} "
                       f"rho={float(out['rho_history'][i]):.4f} "
                       f"nu={float(out['nu_history'][i]):.4f}")
+        print(f"[Final    ] loss={float(out['final_loss']):.6f} alpha={float(out['alpha']):.4f} "
+              f"rho={float(out['rho']):.4f} nu={float(out['nu']):.4f} "
+              f"converged={bool(out['converged'])}")
     return {
         "alpha": float(out["alpha"]),
         "beta": float(out["beta"]),
@@ -241,6 +319,7 @@ def _as_result(out, steps, verbose):
         "nu": float(out["nu"]),
         "model_ivs": np.asarray(out["model_ivs"]),
         "final_loss": float(out["final_loss"]),
+        "converged": bool(out["converged"]),
     }
 
 
@@ -250,22 +329,24 @@ def calibrate_sabr_single_expiry(F, Ks, T, market_ivs,
                                  steps=1500,
                                  lr=1e-2,
                                  verbose=True,
-                                 seed=0):
+                                 seed=0,
+                                 newton_steps=20):
     """
     Calibrate SABR (alpha, rho, nu) for one expiry with fixed beta.
 
-    Returns a dict of floats (alpha, beta, rho, nu, final_loss) and the
-    model IVs as a NumPy array. With verbose, prints the loss and parameters
+    Returns a dict of floats (alpha, beta, rho, nu, final_loss), the model
+    IVs as a NumPy array, and whether the fit converged. With verbose, prints the loss and parameters
     every 200 steps. `seed` is accepted for compatibility; the
     initialisation is deterministic.
     """
     out = calibrate_sabr(F, jnp.asarray(Ks), T, jnp.asarray(market_ivs),
-                         beta, lr, steps=steps, vega_weight=vega_weight)
+                         beta, lr, steps=steps, vega_weight=vega_weight, newton_steps=newton_steps)
     return _as_result(out, steps, verbose)
 
 
 def calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
-                           beta=0.5, steps=1200, lr=1e-2, vega_weight=True, verbose=False):
+                           beta=0.5, steps=1200, lr=1e-2, vega_weight=True, verbose=False,
+                           newton_steps=20):
     """
     Calibrate SABR for each expiry independently with fixed beta.
 
@@ -277,13 +358,13 @@ def calibrate_sabr_surface(forwards, strikes_list, maturities, market_ivs_list,
         out = calibrate_sabr_batch(
             jnp.asarray(forwards, dtype=float), jnp.asarray(np.stack(strikes_list), dtype=float),
             jnp.asarray(maturities, dtype=float), jnp.asarray(np.stack(market_ivs_list), dtype=float),
-            beta, lr, steps=steps, vega_weight=vega_weight,
+            beta, lr, steps=steps, vega_weight=vega_weight, newton_steps=newton_steps,
         )
         per_expiry = [jax.tree.map(lambda x, i=i: x[i], out) for i in range(len(forwards))]
     else:
         per_expiry = [
             calibrate_sabr(F, jnp.asarray(Ks), T, jnp.asarray(ivs), beta, lr,
-                           steps=steps, vega_weight=vega_weight)
+                           steps=steps, vega_weight=vega_weight, newton_steps=newton_steps)
             for F, Ks, T, ivs in zip(forwards, strikes_list, maturities, market_ivs_list)
         ]
 
@@ -325,16 +406,20 @@ def _expiry_slices_from_df(row: dict) -> tuple[float, float, np.ndarray, np.ndar
 
 def calibrate_sabr_surface_from_df(
     market_df,
-    beta: float = 0.5,
+    beta: float = 1.0,
     steps: int = 1200,
     lr: float = 1e-2,
     vega_weight: bool = True,
     verbose: bool = False,
+    newton_steps: int = 20,
 ) -> list[dict]:
     """
     Calibrate SABR per expiry from the Polars DataFrame produced by
     `jax_finance.fx.get_fx_market_data_for_calibration`. Polars is only
     needed to build the frame, not imported here.
+
+    beta defaults to 1, the usual FX choice, unlike the generic calibrators'
+    0.5.
     """
     missing = [c for c in _REQUIRED_DF_COLS if c not in market_df.columns]
     if missing:
@@ -357,6 +442,7 @@ def calibrate_sabr_surface_from_df(
         lr=lr,
         vega_weight=vega_weight,
         verbose=verbose,
+        newton_steps=newton_steps,
     )
 
     for row, res in zip(rows, results):
