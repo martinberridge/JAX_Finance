@@ -1,6 +1,7 @@
 """
 JAX pricing kernels for the "autodiff for Greeks" blog series: Black-76
-price and Greeks, and SABR implied vol and calibration.
+price and Greeks, SABR implied vol and calibration, and quote risk through
+the SABR calibration.
 
 Importing this package turns on `jax_enable_x64`. That is a process-wide
 JAX setting, so it also applies to the caller's own JAX code, the same as
@@ -30,6 +31,12 @@ from .sabr import (
     sabr_loss_for_points,
     sabr_params_from_raw,
 )
+from .sabr_risk import (
+    calibrate_sabr_from_quotes,
+    market_quote_vega,
+    pv_from_quotes,
+    smile_from_quotes,
+)
 
 __all__ = [
     "black_price",
@@ -44,4 +51,8 @@ __all__ = [
     "calibrate_sabr_single_expiry",
     "calibrate_sabr_surface",
     "calibrate_sabr_surface_from_df",
+    "smile_from_quotes",
+    "calibrate_sabr_from_quotes",
+    "pv_from_quotes",
+    "market_quote_vega",
 ]
