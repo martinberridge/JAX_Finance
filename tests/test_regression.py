@@ -163,7 +163,7 @@ def calib():
 def test_calibration_scan_matches_old_loop(calib):
     for e in calib:
         out = calibrate_sabr(e["F"], e["K"], e["T"], e["market_vol"], e["beta"], e["lr"],
-                             steps=e["steps"], vega_weight=True)
+                             steps=e["steps"], vega_weight=True, newton_steps=0)
         got = np.array([float(out["alpha"]), float(out["rho"]), float(out["nu"])])
         np.testing.assert_allclose(got, e["reference"], rtol=1e-10)
 
@@ -172,7 +172,7 @@ def test_calibration_vmap_matches_old_loop(calib):
     beta, steps, lr = calib[0]["beta"], calib[0]["steps"], calib[0]["lr"]
     results = calibrate_sabr_surface([e["F"] for e in calib], [e["K"] for e in calib],
                                      [e["T"] for e in calib], [e["market_vol"] for e in calib],
-                                     beta=beta, steps=steps, lr=lr, vega_weight=True)
+                                     beta=beta, steps=steps, lr=lr, vega_weight=True, newton_steps=0)
     for e, r in zip(calib, results):
         np.testing.assert_allclose([r["alpha"], r["rho"], r["nu"]], e["reference"], rtol=1e-10)
 
